@@ -1,0 +1,134 @@
+# Disposable n8n for the workflow harness: the real exported workflows, imported by the real
+# setup script with throw-away secrets, calling a scriptable stub of the internal API.
+# Use n8n/tests/harness/run.sh; it creates the secrets, runs the scenarios and removes all.
+name: lead-n8n-harness
+
+x-hardened: &hardened
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+x-n8n-common: &n8n-common
+  N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
+  N8N_DIAGNOSTICS_ENABLED: "false"
+  DB_TYPE: sqlite
+
+services:
+  api:
+    <<: *hardened
+    image: python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
+    user: "65534:65534"
+    command: [python, -u, /harness/stub_api.py]
+    environment:
+      STUB_TOKEN_FILE: /run/secrets/internal_token
+    secrets: [internal_token]
+    volumes:
+      - ./stub_api.py:/harness/stub_api.py:ro
+    networks: [harness]
+
+  mailpit:
+    <<: *hardened
+    image: axllent/mailpit:v1.29.6@sha256:0b5c5f7ffd3c93474baa7fd3869c1462e5a3d03256ed0933dfc0e7d81d794036
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "false"
+    tmpfs: [/tmp, /data]
+    networks: [harness]
+
+  n8n-setup:
+    <<: *hardened
+    image: n8nio/n8n:2.45.6@sha256:45edf89655fd66dd55ea9336c1791ad14777599fdbf6c5aec6db583ede99a40b
+    entrypoint: [node, /opt/lead/setup.mjs]
+    environment:
+      <<: *n8n-common
+      N8N_LOG_LEVEL: warn
+      LEAD_API_URL: http://api:8000
+      LEAD_SMTP_HOST: mailpit
+      LEAD_SMTP_PORT: "1025"
+    secrets: [n8n_encryption_key, dispatch_secret, internal_token, n8n_owner_password]
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ../../workflows:/opt/lead/workflows:ro
+      - ../../setup/setup.mjs:/opt/lead/setup.mjs:ro
+    tmpfs: [/tmp, "/home/node/.cache:uid=1000,gid=1000,mode=0700"]
+    networks: [harness]
+
+  n8n:
+    <<: *hardened
+    image: n8nio/n8n:2.45.6@sha256:45edf89655fd66dd55ea9336c1791ad14777599fdbf6c5aec6db583ede99a40b
+    environment:
+      <<: *n8n-common
+      N8N_INSTANCE_OWNER_MANAGED_BY_ENV: "true"
+      N8N_INSTANCE_OWNER_EMAIL: owner@example.com
+      N8N_INSTANCE_OWNER_PASSWORD_HASH_FILE: /home/node/.n8n/lead-owner-password.bcrypt
+      N8N_RUNNERS_MODE: external
+      N8N_RUNNERS_BROKER_LISTEN_ADDRESS: 0.0.0.0
+      N8N_RUNNERS_AUTH_TOKEN_FILE: /run/secrets/n8n_runners_auth_token
+      N8N_SSRF_PROTECTION_ENABLED: "true"
+      N8N_SSRF_ALLOWED_HOSTNAMES: api,mailpit
+      N8N_WEBHOOK_URL: http://n8n:5678/
+      N8N_SECURE_COOKIE: "false"
+      N8N_LOG_LEVEL: warn
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      N8N_DISABLED_MODULES: mcp-registry
+    secrets: [n8n_encryption_key, n8n_runners_auth_token]
+    volumes:
+      - n8n-data:/home/node/.n8n
+    tmpfs: [/tmp, "/home/node/.cache:uid=1000,gid=1000,mode=0700"]
+    networks: [harness]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5678/healthz/readiness"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    depends_on:
+      n8n-setup: {condition: service_completed_successfully}
+
+  n8n-runners:
+    <<: *hardened
+    image: n8nio/runners:2.45.6@sha256:7b11feb37131eebe8e90585ab562f6a90ed2a6acb956e1e6537fe3885d7957e4
+    command: [javascript]
+    environment:
+      N8N_RUNNERS_TASK_BROKER_URI: http://n8n:5679
+      N8N_RUNNERS_AUTH_TOKEN_FILE: /run/secrets/n8n_runners_auth_token
+    secrets: [n8n_runners_auth_token]
+    volumes:
+      - ../../setup/task-runners.json:/etc/n8n-task-runners.json:ro
+    tmpfs: [/tmp, "/home/runner:uid=1000,gid=1000,mode=0700"]
+    networks: [harness]
+    depends_on:
+      n8n: {condition: service_healthy}
+
+  harness:
+    <<: *hardened
+    image: python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
+    user: "${HARNESS_UID:-1000}:${HARNESS_GID:-1000}"
+    command: [python, -u, /harness/run_scenarios.py]
+    environment:
+      HARNESS_OUT: /out
+    secrets: [dispatch_secret, n8n_owner_password]
+    volumes:
+      - ./run_scenarios.py:/harness/run_scenarios.py:ro
+      - ${HARNESS_OUT_DIR:-./out}:/out
+    networks: [harness]
+    profiles: [run]
+    depends_on:
+      n8n: {condition: service_healthy}
+      n8n-runners: {condition: service_started}
+      api: {condition: service_started}
+
+volumes:
+  n8n-data:
+
+networks:
+  harness:
+    internal: true
+
+secrets:
+  dispatch_secret: {file: "${HARNESS_SECRETS:?}/dispatch_secret"}
+  internal_token: {file: "${HARNESS_SECRETS:?}/internal_token"}
+  n8n_encryption_key: {file: "${HARNESS_SECRETS:?}/n8n_encryption_key"}
+  n8n_runners_auth_token: {file: "${HARNESS_SECRETS:?}/n8n_runners_auth_token"}
+  n8n_owner_password: {file: "${HARNESS_SECRETS:?}/n8n_owner_password"}
