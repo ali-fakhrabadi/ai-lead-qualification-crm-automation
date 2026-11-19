@@ -54,7 +54,7 @@ def test_email_is_trimmed_and_lowercased_but_not_folded(raw: str, expected: str)
     assert normalize_email(raw) == expected
 
 
-@pytest.mark.parametrize("raw", ["not-an-email", "a@b", "x@[127.0.0.1]", "user@192.168.1.10", ""])
+@pytest.mark.parametrize("raw", ["not-an-email", "a@b", "x@[127.0.0.1]", "user@198.51.100.10", ""])
 def test_invalid_emails_are_rejected(raw: str) -> None:
     with pytest.raises(InvalidField) as exc:
         normalize_email(raw)
