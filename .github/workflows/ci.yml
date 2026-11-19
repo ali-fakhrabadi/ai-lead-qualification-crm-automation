@@ -66,8 +66,9 @@ jobs:
         run: python -m pip install --require-hashes -r requirements.txt -r requirements-dev.txt
       - name: Lint and format (backend, e2e, evals, scripts, workflow harness)
         run: |
-          ruff check --config backend/pyproject.toml backend e2e evals scripts n8n/tests/harness
-          ruff format --check --config backend/pyproject.toml backend e2e evals scripts n8n/tests/harness
+          (cd backend && ruff check . && ruff format --check .)
+          ruff check --config backend/pyproject.toml e2e evals scripts n8n/tests/harness
+          ruff format --check --config backend/pyproject.toml e2e evals scripts n8n/tests/harness
       - name: Type check
         working-directory: backend
         run: mypy app crm_demo
