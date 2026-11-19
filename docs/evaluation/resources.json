@@ -1,0 +1,67 @@
+{
+  "app_host": {
+    "samples": 873,
+    "interval_s": 15,
+    "containers": {
+      "api": {
+        "cpu_percent_mean": 3.9,
+        "cpu_percent_peak": 55.6,
+        "mem_mib_mean": 185.3,
+        "mem_mib_peak": 199.5
+      },
+      "crm-demo": {
+        "cpu_percent_mean": 3.1,
+        "cpu_percent_peak": 47.6,
+        "mem_mib_mean": 58.6,
+        "mem_mib_peak": 73.0
+      },
+      "dispatcher": {
+        "cpu_percent_mean": 0.6,
+        "cpu_percent_peak": 6.7,
+        "mem_mib_mean": 63.6,
+        "mem_mib_peak": 69.1
+      },
+      "mailpit": {
+        "cpu_percent_mean": 0.3,
+        "cpu_percent_peak": 4.8,
+        "mem_mib_mean": 13.2,
+        "mem_mib_peak": 18.9
+      },
+      "n8n": {
+        "cpu_percent_mean": 1.0,
+        "cpu_percent_peak": 90.0,
+        "mem_mib_mean": 416.5,
+        "mem_mib_peak": 440.0
+      },
+      "n8n-runners": {
+        "cpu_percent_mean": 2.5,
+        "cpu_percent_peak": 101.8,
+        "mem_mib_mean": 26.9,
+        "mem_mib_peak": 97.5
+      },
+      "postgres": {
+        "cpu_percent_mean": 1.4,
+        "cpu_percent_peak": 7.8,
+        "mem_mib_mean": 91.3,
+        "mem_mib_peak": 99.0
+      },
+      "web": {
+        "cpu_percent_mean": 0.2,
+        "cpu_percent_peak": 3.3,
+        "mem_mib_mean": 9.4,
+        "mem_mib_peak": 9.4
+      }
+    },
+    "definition": "docker stats every 15 s on the application host; 100 % = one CPU."
+  },
+  "model_host": {
+    "samples": 1010,
+    "logical_cpus": 12,
+    "host_cpu_percent_mean": 32.1,
+    "host_cpu_percent_peak": 80.0,
+    "ollama_cpu_percent_mean": 227.4,
+    "ollama_cpu_percent_peak": 811.7,
+    "ollama_rss_mib_peak": 7079.0,
+    "definition": "Model host, every 15 s: whole-host CPU (100 % = all CPUs) and the Ollama processes' CPU (100 % = one CPU) and resident memory."
+  }
+}

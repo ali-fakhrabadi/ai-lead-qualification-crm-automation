@@ -12,7 +12,7 @@
           "execution_id": "1",
           "status": "success",
           "step": "follow_up_draft",
-          "duration_ms": 561,
+          "duration_ms": 542,
           "error": null
         },
         "workflow_error": null
@@ -27,7 +27,7 @@
         "n8n_execution_success": true
       },
       "title": "pipeline: new lead runs qualification, CRM sync and draft once",
-      "seconds": 5.6,
+      "seconds": 5.7,
       "passed": true
     },
     {
@@ -50,13 +50,13 @@
           "execution_id": "3",
           "status": "success",
           "step": "follow_up_draft",
-          "duration_ms": 7299,
+          "duration_ms": 8312,
           "error": null
         },
         "workflow_error": null
       },
       "observed": {
-        "seconds_between_crm_calls": 7.0
+        "seconds_between_crm_calls": 8.1
       },
       "checks": {
         "reported_success": true,
@@ -66,7 +66,7 @@
         "draft_created_once": true
       },
       "title": "pipeline: CRM 429 with Retry-After is waited out, one contact",
-      "seconds": 8.2,
+      "seconds": 9.3,
       "passed": true
     },
     {
@@ -76,7 +76,7 @@
           "execution_id": "4",
           "status": "error",
           "step": "crm_sync",
-          "duration_ms": 27338,
+          "duration_ms": 25409,
           "error": "crm_unavailable"
         },
         "workflow_error": null
@@ -87,7 +87,7 @@
         "no_draft_without_crm": true
       },
       "title": "pipeline: CRM outage exhausts 3 attempts, reported for redelivery",
-      "seconds": 28.4,
+      "seconds": 26.4,
       "passed": true
     },
     {
@@ -97,7 +97,7 @@
           "execution_id": "5",
           "status": "stopped",
           "step": "crm_sync",
-          "duration_ms": 136,
+          "duration_ms": 130,
           "error": "crm_rejected"
         },
         "workflow_error": null
@@ -108,7 +108,7 @@
         "no_draft": true
       },
       "title": "pipeline: CRM permanent error stops without retry",
-      "seconds": 1.3,
+      "seconds": 1.2,
       "passed": true
     },
     {
@@ -118,7 +118,7 @@
           "execution_id": "6",
           "status": "success",
           "step": "follow_up_draft",
-          "duration_ms": 14278,
+          "duration_ms": 20464,
           "error": null
         },
         "workflow_error": null
@@ -129,7 +129,7 @@
         "crm_synced_once": true
       },
       "title": "pipeline: model unavailable once, retried with backoff",
-      "seconds": 15.3,
+      "seconds": 21.4,
       "passed": true
     },
     {
@@ -139,7 +139,7 @@
           "execution_id": "7",
           "status": "stopped",
           "step": "qualify",
-          "duration_ms": 91,
+          "duration_ms": 99,
           "error": null
         },
         "workflow_error": null
@@ -161,7 +161,7 @@
           "execution_id": "8",
           "status": "success",
           "step": "follow_up_draft",
-          "duration_ms": 20487,
+          "duration_ms": 10264,
           "error": null
         },
         "workflow_error": null
@@ -172,7 +172,7 @@
         "one_draft_created": true
       },
       "title": "pipeline: draft step retried without creating a second draft",
-      "seconds": 21.4,
+      "seconds": 11.3,
       "passed": true
     },
     {
@@ -220,7 +220,7 @@
           "execution_id": "12",
           "status": "success",
           "step": "deliver",
-          "duration_ms": 6134,
+          "duration_ms": 6137,
           "error": null
         },
         "workflow_error": null
@@ -231,7 +231,7 @@
         "delivered_once": true
       },
       "title": "delivery: approved draft delivered once after a 503",
-      "seconds": 7.3,
+      "seconds": 7.2,
       "passed": true
     },
     {
@@ -245,5 +245,5 @@
       "passed": true
     }
   ],
-  "finished_at": "2026-11-19T16:05:26.773599+00:00"
+  "finished_at": "2026-11-19T17:18:41.717161+00:00"
 }

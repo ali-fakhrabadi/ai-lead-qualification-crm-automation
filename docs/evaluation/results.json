@@ -1,0 +1,554 @@
+{
+  "run": {
+    "started_at": "2026-11-19T17:12:07.001923+00:00",
+    "finished_at": "2026-11-19T21:28:45.431736+00:00",
+    "dataset": "lead-evaluation-dataset.jsonl",
+    "config": {
+      "llm_provider": "ollama",
+      "llm_model": "llama3.1:latest",
+      "crm_provider": "demo",
+      "delivery_mode": "sink"
+    },
+    "environment": {
+      "app_host": {
+        "cpu_model": "Intel(R) Xeon(R) Gold 6138 CPU @ 2.00GHz",
+        "logical_cpus": 10,
+        "memory_gib": 9.7,
+        "kernel": "6.1.0-42-amd64",
+        "docker": "27.3.1"
+      },
+      "images": [
+        {
+          "service": "api-1",
+          "image": "lead-automation-api",
+          "tag": "local"
+        },
+        {
+          "service": "crm-demo-1",
+          "image": "lead-automation-api",
+          "tag": "local"
+        },
+        {
+          "service": "dispatcher-1",
+          "image": "lead-automation-api",
+          "tag": "local"
+        },
+        {
+          "service": "mailpit-1",
+          "image": "axllent/mailpit",
+          "tag": "v1.29.6"
+        },
+        {
+          "service": "migrate-1",
+          "image": "lead-automation-api",
+          "tag": "local"
+        },
+        {
+          "service": "n8n-1",
+          "image": "n8nio/n8n",
+          "tag": "2.45.6"
+        },
+        {
+          "service": "n8n-runners-1",
+          "image": "n8nio/runners",
+          "tag": "2.45.6"
+        },
+        {
+          "service": "n8n-setup-1",
+          "image": "n8nio/n8n",
+          "tag": "2.45.6"
+        },
+        {
+          "service": "postgres-1",
+          "image": "postgres",
+          "tag": "17.11-alpine"
+        },
+        {
+          "service": "web-1",
+          "image": "lead-automation-web",
+          "tag": "local"
+        }
+      ],
+      "app_commit": "8d0f157",
+      "draft_generator": "template"
+    },
+    "model": {
+      "provider": "ollama",
+      "model": "llama3.1:latest",
+      "num_ctx": 8192,
+      "temperature": 0.0,
+      "seed": 7,
+      "num_thread": 8,
+      "timeout_s": 300.0,
+      "draft_followups_by_model": false,
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "llama",
+        "families": [
+          "llama"
+        ],
+        "parameter_size": "8.0B",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+      "ollama_version": "0.12.9"
+    }
+  },
+  "scenarios": {
+    "executed": 128,
+    "by_kind": {
+      "new_lead": 49,
+      "webhook_replay": 8,
+      "webhook_key_reuse": 2,
+      "exact_duplicate_email": 6,
+      "form_double_submit": 2,
+      "same_email_new_inquiry": 3,
+      "same_email_conflict": 3,
+      "similar_contacts": 6,
+      "invalid_input": 10,
+      "webhook_auth": 3,
+      "prompt_injection": 8,
+      "crm_transient": 6,
+      "crm_permanent": 3,
+      "llm_malformed": 4,
+      "llm_unavailable": 3,
+      "human_approval": 12
+    },
+    "all_checks_passed": 126,
+    "with_a_failed_check": 2,
+    "not_applicable": 0,
+    "failed": [
+      {
+        "id": "S046",
+        "kind": "new_lead",
+        "case": null,
+        "failed_checks": [
+          "accepted",
+          "settled"
+        ],
+        "timed_out": false,
+        "error": null
+      },
+      {
+        "id": "S098",
+        "kind": "prompt_injection",
+        "case": null,
+        "failed_checks": [
+          "held_for_review",
+          "no_crm_record",
+          "no_draft"
+        ],
+        "timed_out": false,
+        "error": null
+      }
+    ],
+    "not_applicable_reasons": [],
+    "leads_created": 108
+  },
+  "intake": {
+    "webhook_requests": 43,
+    "webhook_accepted_202": 38,
+    "webhook_rejected": {
+      "409": 2,
+      "401": 2,
+      "404": 1
+    },
+    "form_requests": 107,
+    "form_accepted_202": 97,
+    "form_rejected": {
+      "422": 10
+    },
+    "rate_limited_429": 0,
+    "duplicate_deliveries_suppressed": {
+      "numerator": 22,
+      "denominator": 22,
+      "rate": 1.0,
+      "definition": "Repeated deliveries (webhook redeliveries, double-submitted forms, identical re-submissions, reused event ids with a changed payload) that created no second lead and no second workflow run, over all repeated deliveries sent."
+    },
+    "duplicate_crm_contacts": {
+      "leads_with_more_than_one_contact": 0,
+      "leads_with_a_crm_contact": 67,
+      "crm_duplicate_emails": 0,
+      "definition": "Scenario leads whose email matches more than one contact in the CRM after the run (the demo CRM, like HubSpot, also refuses a second contact with the same email; the adapter then updates the existing one)."
+    }
+  },
+  "crm": {
+    "sync_operations_succeeded": 67,
+    "sync_operations_failed": 5,
+    "failed_by_code": {
+      "server_error": 2,
+      "rejected": 1,
+      "forbidden": 1,
+      "unauthorized": 1
+    },
+    "http_calls_logged_by_crm": 579,
+    "http_calls_failed_by_injection": 18,
+    "contacts": 67,
+    "companies": 67,
+    "notes": 67,
+    "definition": "A sync operation is one call of the CRM-sync step (search, create or update the contact, company, association and note, each HTTP call retried by the adapter). Failed operations are the ones that still failed after the adapter's retries and were handed back to n8n."
+  },
+  "recovery": {
+    "transient_failures_recovered": {
+      "numerator": 11,
+      "denominator": 11,
+      "rate": 1.0,
+      "definition": "Scenarios with an injected transient failure (CRM 5xx/429 for 1-4 consecutive calls; model unavailable 1-2 times; one malformed model reply) that ended in the expected state with exactly one CRM contact and no operator action, over those scenarios that reached the failing step."
+    },
+    "permanent_failures_stopped_then_recovered_by_operator": {
+      "numerator": 3,
+      "denominator": 3,
+      "rate": 1.0,
+      "definition": "CRM 400/401/403 scenarios where the lead stopped in `failed` for an operator and one operator retry then synced exactly one contact."
+    },
+    "unrecovered": []
+  },
+  "model": {
+    "qualification_runs_without_injected_faults": 104,
+    "schema_valid_first_reply": {
+      "numerator": 104,
+      "denominator": 104,
+      "rate": 1.0,
+      "definition": "Model replies that passed strict schema validation without a repair call."
+    },
+    "schema_valid_after_one_repair": {
+      "numerator": 104,
+      "denominator": 104,
+      "rate": 1.0,
+      "definition": "Valid after at most one repair call; the rest were stored as invalid output and held for review."
+    },
+    "unexpected_provider_errors": 1,
+    "latency_s": {
+      "n": 104,
+      "p50": 35.9,
+      "p95": 69.2,
+      "min": 26.3,
+      "max": 235.9
+    },
+    "prompt_tokens": {
+      "n": 104,
+      "p50": 545.0,
+      "p95": 556.0,
+      "min": 497.0,
+      "max": 567.0
+    },
+    "completion_tokens": {
+      "n": 104,
+      "p50": 146.0,
+      "p95": 164.0,
+      "min": 105.0,
+      "max": 178.0
+    }
+  },
+  "agreement": {
+    "definition": "The system's decision from the first valid assessment (model output + deterministic rules) compared with the label written before the run. Labels: qualified or needs_review; intent only where unambiguous.",
+    "labelled_new_leads": {
+      "scenarios": 48,
+      "without_a_valid_assessment": 0,
+      "decision_accuracy": {
+        "numerator": 47,
+        "denominator": 48,
+        "rate": 0.9792
+      },
+      "confusion": {
+        "expected_qualified__got_qualified": 23,
+        "expected_qualified__got_needs_review": 1,
+        "expected_review__got_qualified": 0,
+        "expected_review__got_needs_review": 24
+      },
+      "qualified_precision": {
+        "numerator": 23,
+        "denominator": 23,
+        "rate": 1.0
+      },
+      "qualified_recall": {
+        "numerator": 23,
+        "denominator": 24,
+        "rate": 0.9583
+      },
+      "false_auto_qualification_rate": {
+        "numerator": 0,
+        "denominator": 24,
+        "rate": 0.0,
+        "definition": "Leads labelled for review that the system auto-qualified (and therefore synced and drafted) over all leads labelled for review. The costly error."
+      },
+      "intent_accuracy": {
+        "numerator": 23,
+        "denominator": 42,
+        "rate": 0.5476
+      }
+    },
+    "all_content_only_scenarios": {
+      "scenarios": 82,
+      "without_a_valid_assessment": 2,
+      "decision_accuracy": {
+        "numerator": 80,
+        "denominator": 82,
+        "rate": 0.9756
+      },
+      "confusion": {
+        "expected_qualified__got_qualified": 54,
+        "expected_qualified__got_needs_review": 2,
+        "expected_review__got_qualified": 0,
+        "expected_review__got_needs_review": 26
+      },
+      "qualified_precision": {
+        "numerator": 54,
+        "denominator": 54,
+        "rate": 1.0
+      },
+      "qualified_recall": {
+        "numerator": 54,
+        "denominator": 56,
+        "rate": 0.9643
+      },
+      "false_auto_qualification_rate": {
+        "numerator": 0,
+        "denominator": 26,
+        "rate": 0.0,
+        "definition": "Leads labelled for review that the system auto-qualified (and therefore synced and drafted) over all leads labelled for review. The costly error."
+      },
+      "intent_accuracy": {
+        "numerator": 51,
+        "denominator": 74,
+        "rate": 0.6892
+      }
+    }
+  },
+  "guardrails": {
+    "prompt_injection_held_for_review": {
+      "numerator": 7,
+      "denominator": 8,
+      "rate": 0.875,
+      "definition": "Injection attempts held for a person with no CRM record and no draft."
+    },
+    "prompt_injection_flagged_by_pattern_check": {
+      "numerator": 6,
+      "denominator": 8,
+      "rate": 0.75
+    },
+    "invalid_input_rejected": {
+      "numerator": 10,
+      "denominator": 10,
+      "rate": 1.0
+    },
+    "unauthenticated_webhooks_rejected": {
+      "numerator": 3,
+      "denominator": 3,
+      "rate": 1.0
+    }
+  },
+  "human_review": {
+    "leads_held_for_review": {
+      "numerator": 41,
+      "denominator": 108,
+      "rate": 0.3796,
+      "definition": "Leads whose first qualification result was needs_review (including duplicate, conflict, injection and invalid-output holds), over all leads that were qualified at least once."
+    }
+  },
+  "timings_s": {
+    "definition": "Clean scenarios only (no injected failure), one lead in flight at a time. Receipt = when the API stored the submission.",
+    "receipt_to_qualification": {
+      "n": 66,
+      "p50": 36.5,
+      "p95": 71.0,
+      "min": 26.9,
+      "max": 573.1
+    },
+    "receipt_to_crm_sync": {
+      "n": 40,
+      "p50": 41.0,
+      "p95": 43.4,
+      "min": 36.7,
+      "max": 576.1
+    },
+    "n8n_lead_pipeline_execution": {
+      "n": 66,
+      "p50": 38.6,
+      "p95": 70.1,
+      "min": 29.1,
+      "max": 572.8
+    },
+    "receipt_to_completion_with_injected_transient_failure": {
+      "n": 11,
+      "p50": 57.8,
+      "p95": 103.0,
+      "min": 40.5,
+      "max": 103.0
+    },
+    "approval_to_sink_delivery": {
+      "n": 8,
+      "p50": 0.8,
+      "p95": 3.7,
+      "min": 0.4,
+      "max": 3.7
+    }
+  },
+  "follow_ups": {
+    "drafts_created": 67,
+    "drafts_by_generator": {
+      "template": 67
+    },
+    "approved_and_delivered_to_sink": {
+      "numerator": 8,
+      "denominator": 8,
+      "rate": 1.0
+    },
+    "rejected_and_not_sent": {
+      "numerator": 4,
+      "denominator": 4,
+      "rate": 1.0
+    },
+    "edited_text_delivered": {
+      "numerator": 2,
+      "denominator": 2,
+      "rate": 1.0
+    },
+    "messages_in_sink": 75,
+    "messages_to_leads": 8,
+    "messages_to_leads_without_approval": 0,
+    "operator_notifications": 67,
+    "definition": "Every message to a lead's address must belong to an approved draft (messages_to_leads_without_approval must be 0). The other messages in the sink are n8n's notifications to the operators' mailbox that a draft is waiting. Nothing goes to a real recipient: delivery mode is `sink`."
+  },
+  "api_latency_ms": {
+    "definition": "Round trip measured by the harness inside the stack network, through the nginx web container, sequential requests.",
+    "form_submission_accepted": {
+      "n": 97,
+      "p50": 24.3,
+      "p95": 42.7,
+      "min": 16.3,
+      "max": 66.9
+    },
+    "form_submission_rejected_422": {
+      "n": 10,
+      "p50": 7.3,
+      "p95": 10.4,
+      "min": 5.7,
+      "max": 10.4
+    },
+    "webhook_accepted": {
+      "n": 38,
+      "p50": 28.9,
+      "p95": 39.7,
+      "min": 22.2,
+      "max": 58.4
+    },
+    "webhook_rejected_401_404_409": {
+      "n": 5,
+      "p50": 21.0,
+      "p95": 99.2,
+      "min": 12.7,
+      "max": 99.2
+    },
+    "k6": {
+      "definition": "k6 from a container on the stack network after the benchmark (the database holds the benchmark's leads); see loadtest/api.js.",
+      "endpoints": {
+        "health": {
+          "p50": 9.3,
+          "p95": 65.7,
+          "p99": 75.6,
+          "max": 89.4
+        },
+        "stats": {
+          "p50": 89.9,
+          "p95": 127.8,
+          "p99": 186.8,
+          "max": 276.5
+        },
+        "webhook_redelivery": {
+          "p50": 124.8,
+          "p95": 193.1,
+          "p99": 241.0,
+          "max": 261.9
+        },
+        "form_config": {
+          "p50": 10.9,
+          "p95": 69.2,
+          "p99": 80.7,
+          "max": 104.9
+        },
+        "lead_detail": {
+          "p50": 96.4,
+          "p95": 172.9,
+          "p99": 199.0,
+          "max": 284.6
+        },
+        "lead_list": {
+          "p50": 81.2,
+          "p95": 109.8,
+          "p99": 181.7,
+          "max": 291.2
+        }
+      },
+      "checks_passed_rate": null
+    }
+  },
+  "resources": {
+    "app_host": {
+      "samples": 873,
+      "interval_s": 15,
+      "containers": {
+        "api": {
+          "cpu_percent_mean": 3.9,
+          "cpu_percent_peak": 55.6,
+          "mem_mib_mean": 185.3,
+          "mem_mib_peak": 199.5
+        },
+        "crm-demo": {
+          "cpu_percent_mean": 3.1,
+          "cpu_percent_peak": 47.6,
+          "mem_mib_mean": 58.6,
+          "mem_mib_peak": 73.0
+        },
+        "dispatcher": {
+          "cpu_percent_mean": 0.6,
+          "cpu_percent_peak": 6.7,
+          "mem_mib_mean": 63.6,
+          "mem_mib_peak": 69.1
+        },
+        "mailpit": {
+          "cpu_percent_mean": 0.3,
+          "cpu_percent_peak": 4.8,
+          "mem_mib_mean": 13.2,
+          "mem_mib_peak": 18.9
+        },
+        "n8n": {
+          "cpu_percent_mean": 1.0,
+          "cpu_percent_peak": 90.0,
+          "mem_mib_mean": 416.5,
+          "mem_mib_peak": 440.0
+        },
+        "n8n-runners": {
+          "cpu_percent_mean": 2.5,
+          "cpu_percent_peak": 101.8,
+          "mem_mib_mean": 26.9,
+          "mem_mib_peak": 97.5
+        },
+        "postgres": {
+          "cpu_percent_mean": 1.4,
+          "cpu_percent_peak": 7.8,
+          "mem_mib_mean": 91.3,
+          "mem_mib_peak": 99.0
+        },
+        "web": {
+          "cpu_percent_mean": 0.2,
+          "cpu_percent_peak": 3.3,
+          "mem_mib_mean": 9.4,
+          "mem_mib_peak": 9.4
+        }
+      },
+      "definition": "docker stats every 15 s on the application host; 100 % = one CPU."
+    },
+    "model_host": {
+      "samples": 1010,
+      "logical_cpus": 12,
+      "host_cpu_percent_mean": 32.1,
+      "host_cpu_percent_peak": 80.0,
+      "ollama_cpu_percent_mean": 227.4,
+      "ollama_cpu_percent_peak": 811.7,
+      "ollama_rss_mib_peak": 7079.0,
+      "definition": "Model host, every 15 s: whole-host CPU (100 % = all CPUs) and the Ollama processes' CPU (100 % = one CPU) and resident memory."
+    }
+  }
+}

@@ -12,9 +12,21 @@ pre{margin:0;padding:14px 26px 26px;color:#C9D1D9;font-size:17px;line-height:1.4
 white-space:pre-wrap;word-break:break-word}
 .ok{color:#3FB950}.bad{color:#F85149}.dim{color:#6E7681}
 </style></head><body><div class="win"><div class="bar"><i></i><i></i><i></i><b>Backend: unit + integration tests against PostgreSQL, with coverage</b></div>
-<div class="cmd"><span>$</span> pytest --cov=app --cov=crm_demo  (backend/, lab host 24.179, 2026-11-19)</div><pre>........................................................................ [ 46%]
-........................................................................ [ 93%]
-..........                                                               [100%]
+<div class="cmd"><span>$</span> pytest --cov=app --cov=crm_demo  (backend/, lab host 24.179, 2026-11-19)</div><pre>============================= test session starts ==============================
+platform linux -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0
+rootdir: /app
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0, platformdirs-4.14.7, cov-7.1.0
+collected 163 items
+
+tests/integration/test_intake.py ..................................      [ 20%]
+tests/integration/test_pipeline.py ............................          [ 38%]
+tests/unit/test_crm_client.py ...............                            [ 47%]
+tests/unit/test_domain.py ........................................       [ 71%]
+tests/unit/test_qualification.py ....................................... [ 95%]
+.......                                                                  [100%]
+
 =============================== warnings summary ===============================
 ../opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1
   /opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
@@ -46,7 +58,7 @@ app/db/session.py                   24      3      0      0    88%   38-40
 app/delivery/mail.py                25     16      0      0    36%   23-38
 app/dispatcher/main.py              91     24     14      1    70%   94-95, 136, 143-162, 166
 app/main.py                         65      4      8      3    90%   31, 52, 84-&gt;89, 112-113
-app/qualification/prompt.py         41      1      0      0    98%   156
+app/qualification/prompt.py         41      1      0      0    98%   167
 app/qualification/providers.py     119     13     40     11    84%   59-&gt;61, 120-121, 123, 125, 180, 182, 184, 186, 190, 194, 205-&gt;207, 236-238
 app/qualification/rubric.py         36      1      2      1    95%   92
 app/services/auth.py                74     15     16      4    74%   66, 79, 92, 98-107, 113, 128-138
@@ -63,4 +75,4 @@ crm_demo/app.py                    182     33     26      9    80%   133, 148, 2
 TOTAL                             2964    263    486    103    89%
 
 18 files skipped due to complete coverage.
-<span class="ok">154 passed, 2 warnings in 40.22s</span></pre></div></body></html>
+<span class="ok">======================= 163 passed, 2 warnings in 37.59s =======================</span></pre></div></body></html>
