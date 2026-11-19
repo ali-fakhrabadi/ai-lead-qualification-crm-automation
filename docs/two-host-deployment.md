@@ -58,11 +58,62 @@ benchmark's model-host CPU samples include the other application's load.
 
 ## Deployment record
 
-Filled in from the actual verification run; see the section below for the commands.
+Filled in from the actual verification run on 2026-11-19 (21:52-22:04 UTC); the commands are in
+the next section.
 
 | Item | Value |
 |---|---|
-| Application commit | _recorded at deployment_ |
-| Images | `lead-automation-api:local`, `lead-automation-web:local` (built on the host from that commit); n8n 2.45.6, runners 2.45.6, PostgreSQL 17.11, Mailpit 1.29.6 pinned by digest |
-| Model | `llama3.1:latest` (8.0B, Q4_K_M), Ollama on `24.176` |
-| Exposure | web on the LAN interface; n8n editor and Mailpit UI on loopback; PostgreSQL, API, n8n webhooks, demo CRM internal only |
+| Application commit | `8aace5c` (the server copy is synced from that commit; `.env` and `secrets/` never leave the host) |
+| Images | `lead-automation-api:local` (`sha256:e82e2f03…`), `lead-automation-web:local` (`sha256:0954b0cc…`), built on the host from that commit; n8n 2.45.6, runners 2.45.6, PostgreSQL 17.11, Mailpit 1.29.6 pinned by digest |
+| Configuration | `compose.yaml` only (no evaluation overlay): `LEAD_ENVIRONMENT=production`, fault injection off in the API and the demo CRM, model-written drafts on, delivery to the sink |
+| Model | `llama3.1:latest` (8.0B, Q4_K_M), Ollama on `24.176`, same runner options as the other client |
+| Exposure (checked with `ss` and `curl` from the host) | web on the LAN interface (health 200); n8n editor and Mailpit UI on 127.0.0.1 only (no answer on the LAN address); PostgreSQL, API, n8n webhooks and demo CRM not published |
+| Data | the synthetic benchmark and test leads (no real lead data) |
+| Smoke test | passed: one lead, the replay recognised, an identical resubmission ignored, one workflow run, one CRM contact, no message before approval; qualified with a model-written draft in under 9 minutes on the shared CPU model host |
+| Backup + restore check | passed: three dumps with checksums; restored into scratch databases, row counts equal (118 leads, 131 lead events, 771 audit events, 129 outbox events), 3 n8n workflows, 68 CRM contacts |
+| Rollback test | passed: the running images tagged `:rollback`, stack started on them (all healthy, web health 200), then back on `:local` (all healthy, health 200). Both tags held the same build, so this verifies the procedure, not a version change |
+
+## Verification run
+
+On `24.179`, in the repository directory:
+
+```bash
+docker compose -f compose.yaml -f compose.eval.yaml down
+```
+
+```bash
+docker compose up -d --build --wait
+```
+
+```bash
+scripts/create-demo-users.sh
+```
+
+```bash
+e2e/smoke.sh
+```
+
+```bash
+scripts/backup.sh
+```
+
+```bash
+scripts/restore.sh --check backups/<stamp>
+```
+
+```bash
+for i in api web; do docker tag lead-automation-$i:local lead-automation-$i:rollback; done
+```
+
+```bash
+LEAD_API_IMAGE=lead-automation-api:rollback LEAD_WEB_IMAGE=lead-automation-web:rollback docker compose up -d --wait
+```
+
+```bash
+docker compose up -d --wait
+```
+
+Before the switch, `.env` lost the benchmark-only `LEAD_LLM_DRAFT_FOLLOWUPS=false` line and
+`WEB_BIND` was set to the LAN interface's address (kept only in the host's `.env`). The demo
+accounts already existed from the benchmark, so the user script reported conflicts and changed
+nothing.
