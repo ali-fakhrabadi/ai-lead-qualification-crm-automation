@@ -29,6 +29,10 @@ DATASET = Path(os.environ.get("EVAL_DATASET", "/data/lead-evaluation-dataset.jso
 OUT = Path(os.environ.get("EVAL_OUT", "/out"))
 LEAD_TIMEOUT_S = int(os.environ.get("EVAL_LEAD_TIMEOUT_S", "1800"))
 ONLY = {s for s in os.environ.get("EVAL_ONLY", "").split(",") if s}
+# Resume an interrupted run on the same stack: keep the earlier records, run the rest, and
+# re-run the listed ids (e.g. scenarios fixed in the dataset after they ran).
+RESUME_FROM = os.environ.get("EVAL_RESUME_FROM", "")
+RERUN = {s for s in os.environ.get("EVAL_RERUN", "").split(",") if s}
 TERMINAL = {
     "follow_up_draft_ready",
     "needs_review",
@@ -101,6 +105,10 @@ class Run:
         return None
 
     def settle_into(self, rec: dict[str, Any], email: str) -> dict[str, Any] | None:
+        if not any(r["status"] == 202 for r in rec["requests"]):
+            # Refused at intake (validation, auth): there is no lead to wait for.
+            rec["observed"]["refused_at_intake"] = True
+            return None
         detail = self.settle(email)
         if detail is None:
             rec["timed_out"] = True
@@ -456,7 +464,20 @@ def main() -> int:
         )
         return 2
     started = now()
+    resumed: dict[str, Any] = {}
+    if RESUME_FROM:
+        previous = json.loads(Path(RESUME_FROM).read_text(encoding="utf-8"))
+        kept = [r for r in previous["scenarios"] if r["id"] not in RERUN]
+        run.records = kept
+        run.by_id = {r["id"]: r for r in kept}
+        started = previous.get("started_at") or previous["scenarios"][0]["started_at"]
+        scenarios = [s for s in scenarios if s["id"] not in run.by_id]
+        resumed = {
+            "resumed": {"kept": len(kept), "rerun": sorted(RERUN), "remaining": len(scenarios)}
+        }
+        log(f"resuming: {len(kept)} kept, {len(scenarios)} to run (re-run: {sorted(RERUN)})")
     run.run(scenarios)
+    run.records.sort(key=lambda r: r["id"])
     finished = now()
     log("collecting lead records, audit trails, CRM and mail counters")
     run.save(
@@ -465,7 +486,8 @@ def main() -> int:
             "started_at": started,
             "finished_at": finished,
             "dataset": DATASET.name,
-            "scenario_count": len(scenarios),
+            "scenario_count": len(run.records),
+            **resumed,
             **run.collect(),
         },
     )

@@ -6,6 +6,8 @@
 #   scripts/create-demo-users.sh
 #   evals/run.sh                       # all scenarios (hours with a CPU-only model)
 #   EVAL_ONLY=S001,S050 evals/run.sh   # selected scenario ids or kinds
+#   EVAL_ALLOW_EXISTING=1 EVAL_RESUME_FROM=/out/raw-part1.json EVAL_RERUN=S025 evals/run.sh
+#                                      # resume an interrupted run on the same stack
 #
 # LEAD_LLM_DRAFT_FOLLOWUPS=false makes follow-up drafts use the template, so the benchmark
 # measures qualification, deduplication, CRM sync and approval without spending ~2 minutes of
@@ -80,6 +82,7 @@ harness() {
     --user "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 \
     -e EVAL_ONLY="${EVAL_ONLY:-}" -e EVAL_ALLOW_EXISTING="${EVAL_ALLOW_EXISTING:-}" \
     -e EVAL_LEAD_TIMEOUT_S="${EVAL_LEAD_TIMEOUT_S:-1800}" \
+    -e EVAL_RESUME_FROM="${EVAL_RESUME_FROM:-}" -e EVAL_RERUN="${EVAL_RERUN:-}" \
     -v "$PWD/evals:/evals:ro" -v "$PWD/docs/evaluation:/data:ro" -v "$OUT:/out" \
     "${mounts[@]}" -w /evals lead-automation-e2e "$@"
 }

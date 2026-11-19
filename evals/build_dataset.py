@@ -373,7 +373,7 @@ WEAK: list[Row] = [
     (
         "Ryan",
         "Cole",
-        "",
+        "Self-employed",
         "",
         "",
         "Canada",
@@ -386,7 +386,7 @@ WEAK: list[Row] = [
     (
         "Aisha",
         "Bello",
-        "",
+        "Student",
         "",
         "Student",
         "Kenya",
@@ -399,7 +399,7 @@ WEAK: list[Row] = [
     (
         "Victor",
         "Hale",
-        "",
+        "Freelance",
         "",
         "Freelancer",
         "Poland",
@@ -502,7 +502,7 @@ WEAK: list[Row] = [
     (
         "Lucky",
         "Winner",
-        "",
+        "Prize Center",
         "",
         "",
         "",
@@ -515,7 +515,7 @@ WEAK: list[Row] = [
     (
         "Asdf",
         "Qwerty",
-        "",
+        "asdf",
         "",
         "",
         "",
@@ -582,7 +582,7 @@ AMBIGUOUS: list[Row] = [
     (
         "Chris",
         "Taylor",
-        "",
+        "Taylor Family Business",
         "",
         "",
         "",
@@ -606,7 +606,7 @@ AMBIGUOUS: list[Row] = [
     (
         "Alex",
         "Kim",
-        "",
+        "Kim Trading",
         "",
         "",
         "",
@@ -641,7 +641,18 @@ AMBIGUOUS: list[Row] = [
         "partnership",
         "needs_review",
     ),
-    ("Sam", "Wilson", "", "", "", "", "crm_integration", "Need CRM help.", None, "needs_review"),
+    (
+        "Sam",
+        "Wilson",
+        "Wilson Ltd",
+        "",
+        "",
+        "",
+        "crm_integration",
+        "Need CRM help.",
+        None,
+        "needs_review",
+    ),
     (
         "Robin",
         "Lee",
@@ -658,7 +669,7 @@ AMBIGUOUS: list[Row] = [
     (
         "Kim",
         "Andersen",
-        "",
+        "Student",
         "",
         "Student",
         "Denmark",
