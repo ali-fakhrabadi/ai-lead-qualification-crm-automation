@@ -430,6 +430,7 @@ def compute(raw: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any]:
     }
 
     # --- human approval -----------------------------------------------------------------------
+    to_leads = sum(int(lead.get("mails") or 0) for lead in leads.values())
     approved = [s for s in approvals if s["checks"].get("delivered_once_to_sink") is not None]
     rejected = [s for s in approvals if "nothing_sent_after_reject" in s["checks"]]
     delivered = sum(1 for s in approved if s["checks"].get("delivered_once_to_sink"))
@@ -445,9 +446,13 @@ def compute(raw: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any]:
             sum(1 for s in approved if "edited_text_delivered" in s["checks"]),
         ),
         "messages_in_sink": raw.get("mail_total"),
-        "messages_without_approval": (raw.get("mail_total") or 0) - delivered,
-        "definition": "Every message in the mail sink must belong to an approved draft. No "
-        "message ever goes to a real recipient: delivery mode is `sink`.",
+        "messages_to_leads": to_leads,
+        "messages_to_leads_without_approval": to_leads - delivered,
+        "operator_notifications": (raw.get("mail_total") or 0) - to_leads,
+        "definition": "Every message to a lead's address must belong to an approved draft "
+        "(messages_to_leads_without_approval must be 0). The other messages in the sink are "
+        "n8n's notifications to the operators' mailbox that a draft is waiting. Nothing goes "
+        "to a real recipient: delivery mode is `sink`.",
     }
 
     # --- API latency seen by the harness ------------------------------------------------------

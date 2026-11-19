@@ -33,6 +33,16 @@ ONLY = {s for s in os.environ.get("EVAL_ONLY", "").split(",") if s}
 # re-run the listed ids (e.g. scenarios fixed in the dataset after they ran).
 RESUME_FROM = os.environ.get("EVAL_RESUME_FROM", "")
 RERUN = {s for s in os.environ.get("EVAL_RERUN", "").split(",") if s}
+# Run selected scenarios again on a stack that already has them (e.g. after a fix): the tag is
+# put in front of every email domain and website so the leads are new to the stack.
+RUN_TAG = os.environ.get("EVAL_RUN_TAG", "")
+
+
+def key(rec: dict[str, Any]) -> str:
+    """Scenario part of submission and event ids (tagged runs need new idempotency keys)."""
+    return f"{RUN_TAG}_{rec['id']}" if RUN_TAG else rec["id"]
+
+
 TERMINAL = {
     "follow_up_draft_ready",
     "needs_review",
@@ -80,7 +90,7 @@ class Run:
     def form(
         self, rec: dict[str, Any], lead: dict[str, Any], n: int, sub: str | None = None
     ) -> c.Response:
-        return self.note(rec, "form", c.submit_form(lead, sub or c.submission_id(rec["id"], n)))
+        return self.note(rec, "form", c.submit_form(lead, sub or c.submission_id(key(rec), n)))
 
     def webhook(
         self, rec: dict[str, Any], lead: dict[str, Any], event_id: str, **kw: Any
@@ -90,7 +100,7 @@ class Run:
 
     def send(self, rec: dict[str, Any], lead: dict[str, Any], n: int = 1) -> c.Response:
         if rec["channel"] == "webhook":
-            return self.webhook(rec, lead, f"evt_{rec['id'].lower()}_{n:02d}")
+            return self.webhook(rec, lead, f"evt_{key(rec).lower()}_{n:02d}")
         return self.form(rec, lead, n)
 
     def settle(self, email: str) -> dict[str, Any] | None:
@@ -139,7 +149,7 @@ class Run:
             rec["checks"]["routing_consistent"] = self.routing_ok(d)
 
     def webhook_replay(self, rec: dict[str, Any], s: dict[str, Any]) -> None:
-        event_id = f"evt_{rec['id'].lower()}_01"
+        event_id = f"evt_{key(rec).lower()}_01"
         responses = [self.webhook(rec, s["lead"], event_id) for _ in range(s["deliveries"])]
         rec["checks"]["all_acknowledged"] = all(r.status == 202 for r in responses)
         rec["checks"]["replays_flagged"] = all(r.body.get("replayed") for r in responses[1:])
@@ -154,7 +164,7 @@ class Run:
             rec["checks"]["routing_consistent"] = self.routing_ok(d)
 
     def webhook_key_reuse(self, rec: dict[str, Any], s: dict[str, Any]) -> None:
-        event_id = f"evt_{rec['id'].lower()}_01"
+        event_id = f"evt_{key(rec).lower()}_01"
         first = self.webhook(rec, s["lead"], event_id)
         changed = {**s["lead"], "message": s["lead"]["message"] + " (edited by the partner)"}
         second = self.webhook(rec, changed, event_id)
@@ -178,7 +188,7 @@ class Run:
             rec["checks"]["routing_consistent"] = self.routing_ok(d)
 
     def form_double_submit(self, rec: dict[str, Any], s: dict[str, Any]) -> None:
-        sub = c.submission_id(rec["id"], 1)
+        sub = c.submission_id(key(rec), 1)
         first = self.form(rec, s["lead"], 1, sub)
         second = self.form(rec, s["lead"], 1, sub)
         rec["checks"]["second_replayed"] = bool(second.body.get("replayed"))
@@ -242,7 +252,7 @@ class Run:
         rec["checks"]["no_lead_created"] = not self.op.leads_matching(s["lead"]["email"] or "@@")
 
     def webhook_auth(self, rec: dict[str, Any], s: dict[str, Any]) -> None:
-        event_id = f"evt_{rec['id'].lower()}_01"
+        event_id = f"evt_{key(rec).lower()}_01"
         kw: dict[str, Any] = {}
         if s["case"] == "bad_signature":
             kw["key"] = "not-the-shared-secret-for-this-partner"
@@ -455,6 +465,14 @@ def main() -> int:
     ]
     if ONLY:
         scenarios = [s for s in scenarios if s["id"] in ONLY or s["kind"] in ONLY]
+    if RUN_TAG:
+        for s in scenarios:
+            for lead in (s.get("lead"), s.get("second_lead")):
+                if lead and "@" in str(lead.get("email") or ""):
+                    local, domain = lead["email"].split("@", 1)
+                    lead["email"] = f"{local}@{RUN_TAG}-{domain}"
+                    if lead.get("website"):
+                        lead["website"] = f"{RUN_TAG}-{lead['website']}"
     run = Run()
     existing = run.op.call("GET", "/api/v1/leads?limit=1").body["total"]
     if existing and not os.environ.get("EVAL_ALLOW_EXISTING"):
@@ -487,6 +505,7 @@ def main() -> int:
             "finished_at": finished,
             "dataset": DATASET.name,
             "scenario_count": len(run.records),
+            **({"run_tag": RUN_TAG} if RUN_TAG else {}),
             **resumed,
             **run.collect(),
         },

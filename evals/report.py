@@ -155,8 +155,12 @@ def main() -> int:
     w(f"| Rejected and never sent | {r(fu['rejected_and_not_sent'])} |")
     w(f"| Edited text delivered | {r(fu['edited_text_delivered'])} |")
     w(
-        f"| Messages in the sink / without an approval | {fu['messages_in_sink']} / "
-        f"{fu['messages_without_approval']} |\n"
+        f"| Messages to lead addresses / of them without an approval | "
+        f"{fu['messages_to_leads']} / {fu['messages_to_leads_without_approval']} |"
+    )
+    w(
+        f"| Operator notifications (draft waiting) / all messages in the sink | "
+        f"{fu['operator_notifications']} / {fu['messages_in_sink']} |\n"
     )
 
     lat = res["api_latency_ms"]

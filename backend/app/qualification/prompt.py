@@ -30,6 +30,17 @@ _INJECTION = re.compile(
     r"\b(lead|inquiry|request|message)?\b.{0,20}\b(as\s+)?(qualified|high priority|100|top)\b"
     r"|\b(set|change)\b.{0,20}\b(the\s+)?(score|qualification|status)\b.{0,20}\b(to|=)\b"
     r"|\b(send|forward|email)\b.{0,40}\b(all|every|the)\b.{0,30}\b(leads?|contacts?|records?|data)\b"
+    # Added after the benchmark (two of eight attempts got past the pattern; one was
+    # auto-qualified): addressing the model directly, asking it to skip the rules or the human
+    # review, fake system markers, and destructive or exfiltrating orders.
+    r"|\bas (the|an|a) (ai|assistant|model|language model|llm)\b"
+    # Narrow on purpose: clients of an automation studio legitimately ask to "approve invoices
+    # automatically" or "skip a manual review step" in their own workflows.
+    r"|\b(ignore|disregard|bypass|override)\b.{0,30}\b(rules|policy|policies|guidelines)\b"
+    r"|\b(approve|qualify|accept)\s+(this|my|our)\s+(lead|request|inquiry|message)\b"
+    r"|\bsystem (override|message|command)\b|\b(admin|developer|debug) mode\b"
+    r"|\b(delete|erase|wipe|drop)\b.{0,20}\b(all|every|other)\b.{0,20}\b(leads?|contacts?|records?)\b"
+    r"|\bexport\b.{0,40}\bto (this|the|my) (message|reply|chat|email)\b"
 )
 
 
