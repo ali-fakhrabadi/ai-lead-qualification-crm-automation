@@ -1,0 +1,19 @@
+# Overlay for end-to-end tests and the evaluation ONLY: enables fault injection so failure and
+# recovery paths (model unavailable, malformed model output, CRM outages) can be measured.
+#
+#   docker compose -f compose.yaml -f compose.eval.yaml up -d
+#
+# Never use this overlay with real leads: fault injection is refused when
+# LEAD_ENVIRONMENT=production, which is why this overlay switches the environment to "test".
+services:
+  api:
+    environment:
+      LEAD_ENVIRONMENT: test
+      LEAD_FAULT_INJECTION_ENABLED: "true"
+  dispatcher:
+    environment:
+      LEAD_ENVIRONMENT: test
+      LEAD_FAULT_INJECTION_ENABLED: "true"
+  crm-demo:
+    environment:
+      CRM_DEMO_FAULTS_ENABLED: "true"
