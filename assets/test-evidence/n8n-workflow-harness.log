@@ -1,0 +1,62 @@
+PASS pipeline: new lead runs qualification, CRM sync and draft once (5.7 s)
+     ok  webhook_accepted_202
+     ok  reported_success
+     ok  qualified_once
+     ok  crm_synced_once
+     ok  draft_created_once
+     ok  operator_notified_once
+     ok  n8n_execution_success
+PASS pipeline: replayed event resumes at the lead's state, no duplicates (1.2 s)
+     ok  webhook_accepted_202
+     ok  second_run_reported
+     ok  second_run_stopped_at_next_step
+     ok  no_new_step_calls
+     ok  still_one_crm_contact
+     ok  still_one_notification
+PASS pipeline: CRM 429 with Retry-After is waited out, one contact (9.3 s)
+     ok  reported_success
+     ok  crm_called_twice
+     ok  retry_after_honoured
+     ok  one_contact_created
+     ok  draft_created_once
+PASS pipeline: CRM outage exhausts 3 attempts, reported for redelivery (26.4 s)
+     ok  three_attempts_then_stop
+     ok  reported_error_for_redelivery
+     ok  no_draft_without_crm
+PASS pipeline: CRM permanent error stops without retry (1.2 s)
+     ok  not_retried
+     ok  reported_stopped_with_error
+     ok  no_draft
+PASS pipeline: model unavailable once, retried with backoff (21.4 s)
+     ok  reported_success
+     ok  qualify_called_twice
+     ok  crm_synced_once
+PASS pipeline: invalid model output stops for review, no CRM, no draft (1.2 s)
+     ok  reported_stopped
+     ok  no_crm_sync
+     ok  no_draft
+     ok  n8n_execution_success
+PASS pipeline: draft step retried without creating a second draft (11.3 s)
+     ok  reported_success
+     ok  draft_called_twice
+     ok  one_draft_created
+PASS webhook: wrong key, expired token and tampered payload refused (3.3 s)
+     ok  wrong_key_refused
+     ok  expired_refused
+     ok  tampered_payload_refused_400
+     ok  no_api_calls_for_refused_events
+PASS error workflow: unexpected failure reported with ids only (5.3 s)
+     ok  error_workflow_reported
+     ok  error_names_the_failed_node
+     ok  error_report_has_no_lead_data
+     ok  no_outcome_reported
+     ok  n8n_execution_error
+PASS delivery: approved draft delivered once after a 503 (7.2 s)
+     ok  reported_success
+     ok  retried_after_503
+     ok  delivered_once
+PASS delivery: replayed approval never sends twice (1.2 s)
+     ok  second_run_reported
+     ok  replay_did_not_send_again
+     ok  still_delivered_once
+12/12 scenarios, 49/49 checks passed

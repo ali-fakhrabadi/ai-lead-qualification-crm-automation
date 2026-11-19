@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;background:#0D1117;width:1600px;font-family:"Cascadia Code",Consolas,monospace}
+.win{margin:40px;border:2px solid #30363D;border-radius:16px;overflow:hidden;background:#0D1117;
+box-shadow:0 20px 50px rgba(1,4,9,.6)}
+.bar{background:#161B22;padding:14px 20px;display:flex;gap:10px;align-items:center;
+border-bottom:2px solid #21262D}
+.bar i{width:13px;height:13px;border-radius:50%;background:#3d444d;display:inline-block}
+.bar b{margin-left:14px;color:#C9D1D9;font:600 20px "Segoe UI",Inter,sans-serif}
+.cmd{padding:18px 26px 0;color:#3FB950;font-size:18px}
+.cmd span{color:#9DA7B3}
+pre{margin:0;padding:14px 26px 26px;color:#C9D1D9;font-size:17px;line-height:1.45;
+white-space:pre-wrap;word-break:break-word}
+.ok{color:#3FB950}.bad{color:#F85149}.dim{color:#6E7681}
+</style></head><body><div class="win"><div class="bar"><i></i><i></i><i></i><b>End-to-end: 15 scenarios + screenshots against the deployed stack, real model (llama3.1 on 24.176)</b></div>
+<div class="cmd"><span>$</span> e2e/run.sh  (lab host 24.179, 2026-11-19)</div><pre>============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.2.0, pluggy-1.7.0 -- /usr/bin/python
+rootdir: /e2e
+configfile: pytest.ini
+plugins: platformdirs-4.13.0
+collecting ... collected 21 items
+
+test_scenarios.py::test_01_form_submission_runs_the_whole_pipeline PASSED [  4%]
+test_scenarios.py::test_02_redelivered_webhook_creates_one_lead_and_one_contact PASSED [  9%]
+test_scenarios.py::test_03_same_email_with_conflicting_details_goes_to_review PASSED [ 14%]
+test_scenarios.py::test_04_similar_people_are_never_merged PASSED        [ 19%]
+test_scenarios.py::test_05_invalid_email_is_rejected_with_a_clear_message PASSED [ 23%]
+test_scenarios.py::test_06_invalid_signature_is_denied PASSED            [ 28%]
+test_scenarios.py::test_07_expired_signature_is_denied PASSED            [ 33%]
+test_scenarios.py::test_08_crm_outage_is_retried_and_recovers PASSED     [ 38%]
+test_scenarios.py::test_09_permanent_crm_error_needs_an_operator PASSED  [ 42%]
+test_scenarios.py::test_10_model_outage_is_recoverable PASSED            [ 47%]
+test_scenarios.py::test_11_malformed_model_output_goes_to_review PASSED  [ 52%]
+test_scenarios.py::test_12_prompt_injection_cannot_change_the_rules PASSED [ 57%]
+test_scenarios.py::test_13_operator_edits_and_approves_then_delivery_goes_to_the_sink PASSED [ 61%]
+test_scenarios.py::test_14_rejected_follow_up_is_never_sent PASSED       [ 66%]
+test_scenarios.py::test_15_viewer_and_anonymous_cannot_change_anything PASSED [ 71%]
+test_screenshots.py::test_login_page PASSED                              [ 76%]
+test_screenshots.py::test_duplicate_queue PASSED                         [ 80%]
+test_screenshots.py::test_crm_sync_panel PASSED                          [ 85%]
+test_screenshots.py::test_audit_log PASSED                               [ 90%]
+test_screenshots.py::test_mobile_dashboard PASSED                        [ 95%]
+test_screenshots.py::test_n8n_canvas_and_executions PASSED               [100%]
+
+---------------------- generated xml file: /out/junit.xml ----------------------
+<span class="ok">======================= 21 passed in 1699.55s (0:28:19) ========================</span>
+exit=0</pre></div></body></html>

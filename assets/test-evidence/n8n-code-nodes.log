@@ -1,0 +1,20 @@
+✔ verify: accepts a well-formed event signed for this payload (6.682385ms)
+✔ verify: rejects a payload that does not match the signed hash (1.521259ms)
+✔ verify: rejects a token issued for another event (0.717788ms)
+✔ verify: rejects wrong issuer, event types and malformed ids (1.603954ms)
+✔ plan: 2xx continues with the next step named by the API (0.942471ms)
+✔ plan: transient errors are retried with a bounded, jittered wait (3.331775ms)
+✔ plan: transient errors stop the run after the last attempt (0.512271ms)
+✔ plan: 4xx is permanent and never retried (0.610602ms)
+✔ plan: a connection error (continued as regular output) is transient (0.884038ms)
+✔ summarize: a finished pipeline is a success with its duration (1.861413ms)
+✔ summarize: review needed or permanent errors stop; exhausted retries are errors (1.105682ms)
+✔ error details: forwards identifiers and a short message only (0.716128ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 177.274055

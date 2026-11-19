@@ -78,6 +78,17 @@ def settle(page: Page) -> None:
     page.wait_for_timeout(1500)
 
 
+def zoom_in(page: Page, steps: int) -> None:
+    """Zoom the canvas in from the fitted view so node names are readable."""
+    button = page.locator("[data-test-id='zoom-in-button']")
+    for _ in range(steps):
+        if button.count():
+            button.first.click()
+        else:
+            page.keyboard.press("=")
+        page.wait_for_timeout(400)
+
+
 def execution_id(operator_api: Api, email: str) -> str:
     lead = operator_api.lead_by_email(email)
     assert lead is not None
@@ -100,16 +111,19 @@ def test_n8n_canvas_and_executions(new_page: Any, operator_api: Api) -> None:
     settle(page)
     page.keyboard.press("Shift+1")  # zoom to fit
     page.wait_for_timeout(800)
+    zoom_in(page, 2)
     screenshot(page, "09-n8n-workflow-canvas")
 
     ok = execution_id(operator_api, "maya.chen@harborview-logistics.example")
     page.goto(f"/workflow/{PIPELINE_WORKFLOW}/executions/{ok}")
     expect(page.get_by_text("Succeeded").first).to_be_visible(timeout=30_000)
     settle(page)
+    zoom_in(page, 1)
     screenshot(page, "10-n8n-successful-execution")
 
     retried = execution_id(operator_api, "lena.vogt@alpenrose-outdoor.example")
     page.goto(f"/workflow/{PIPELINE_WORKFLOW}/executions/{retried}")
     expect(page.locator(".vue-flow").first).to_be_visible(timeout=30_000)
     settle(page)
+    zoom_in(page, 1)
     screenshot(page, "11-n8n-retry-error-handling")

@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;background:#0D1117;width:1600px;font-family:"Cascadia Code",Consolas,monospace}
+.win{margin:40px;border:2px solid #30363D;border-radius:16px;overflow:hidden;background:#0D1117;
+box-shadow:0 20px 50px rgba(1,4,9,.6)}
+.bar{background:#161B22;padding:14px 20px;display:flex;gap:10px;align-items:center;
+border-bottom:2px solid #21262D}
+.bar i{width:13px;height:13px;border-radius:50%;background:#3d444d;display:inline-block}
+.bar b{margin-left:14px;color:#C9D1D9;font:600 20px "Segoe UI",Inter,sans-serif}
+.cmd{padding:18px 26px 0;color:#3FB950;font-size:18px}
+.cmd span{color:#9DA7B3}
+pre{margin:0;padding:14px 26px 26px;color:#C9D1D9;font-size:17px;line-height:1.45;
+white-space:pre-wrap;word-break:break-word}
+.ok{color:#3FB950}.bad{color:#F85149}.dim{color:#6E7681}
+</style></head><body><div class="win"><div class="bar"><i></i><i></i><i></i><b>n8n workflow harness: real exports in a disposable n8n, scripted API failures</b></div>
+<div class="cmd"><span>$</span> n8n/tests/harness/run.sh  (lab host 24.179, 2026-11-19)</div><pre><span class="ok">PASS pipeline: new lead runs qualification, CRM sync and draft once (5.7 s)</span>
+<span class="ok">     ok  webhook_accepted_202</span>
+<span class="ok">     ok  reported_success</span>
+<span class="ok">     ok  qualified_once</span>
+<span class="ok">     ok  crm_synced_once</span>
+<span class="ok">     ok  draft_created_once</span>
+<span class="ok">     ok  operator_notified_once</span>
+<span class="ok">     ok  n8n_execution_success</span>
+<span class="ok">PASS pipeline: replayed event resumes at the lead&#x27;s state, no duplicates (1.2 s)</span>
+<span class="ok">     ok  webhook_accepted_202</span>
+<span class="ok">     ok  second_run_reported</span>
+<span class="ok">     ok  second_run_stopped_at_next_step</span>
+<span class="ok">     ok  no_new_step_calls</span>
+<span class="ok">     ok  still_one_crm_contact</span>
+<span class="ok">     ok  still_one_notification</span>
+<span class="ok">PASS pipeline: CRM 429 with Retry-After is waited out, one contact (9.3 s)</span>
+<span class="ok">     ok  reported_success</span>
+<span class="ok">     ok  crm_called_twice</span>
+<span class="ok">     ok  retry_after_honoured</span>
+<span class="ok">     ok  one_contact_created</span>
+<span class="ok">     ok  draft_created_once</span>
+<span class="ok">PASS pipeline: CRM outage exhausts 3 attempts, reported for redelivery (26.4 s)</span>
+<span class="ok">     ok  three_attempts_then_stop</span>
+<span class="ok">     ok  reported_error_for_redelivery</span>
+<span class="ok">     ok  no_draft_without_crm</span>
+<span class="ok">PASS pipeline: CRM permanent error stops without retry (1.2 s)</span>
+<span class="ok">     ok  not_retried</span>
+<span class="ok">     ok  reported_stopped_with_error</span>
+<span class="ok">     ok  no_draft</span>
+<span class="ok">PASS pipeline: model unavailable once, retried with backoff (21.4 s)</span>
+<span class="ok">     ok  reported_success</span>
+<span class="ok">     ok  qualify_called_twice</span>
+<span class="ok">     ok  crm_synced_once</span>
+<span class="ok">PASS pipeline: invalid model output stops for review, no CRM, no draft (1.2 s)</span>
+<span class="ok">     ok  reported_stopped</span>
+<span class="ok">     ok  no_crm_sync</span>
+<span class="ok">     ok  no_draft</span>
+<span class="ok">     ok  n8n_execution_success</span>
+<span class="ok">PASS pipeline: draft step retried without creating a second draft (11.3 s)</span>
+<span class="ok">     ok  reported_success</span>
+<span class="ok">     ok  draft_called_twice</span>
+<span class="ok">     ok  one_draft_created</span>
+<span class="ok">PASS webhook: wrong key, expired token and tampered payload refused (3.3 s)</span>
+<span class="ok">     ok  wrong_key_refused</span>
+<span class="ok">     ok  expired_refused</span>
+<span class="ok">     ok  tampered_payload_refused_400</span>
+<span class="ok">     ok  no_api_calls_for_refused_events</span>
+<span class="ok">PASS error workflow: unexpected failure reported with ids only (5.3 s)</span>
+<span class="ok">     ok  error_workflow_reported</span>
+<span class="ok">     ok  error_names_the_failed_node</span>
+<span class="ok">     ok  error_report_has_no_lead_data</span>
+<span class="ok">     ok  no_outcome_reported</span>
+<span class="ok">     ok  n8n_execution_error</span>
+<span class="ok">PASS delivery: approved draft delivered once after a 503 (7.2 s)</span>
+<span class="ok">     ok  reported_success</span>
+<span class="ok">     ok  retried_after_503</span>
+<span class="ok">     ok  delivered_once</span>
+<span class="ok">PASS delivery: replayed approval never sends twice (1.2 s)</span>
+<span class="ok">     ok  second_run_reported</span>
+<span class="ok">     ok  replay_did_not_send_again</span>
+<span class="ok">     ok  still_delivered_once</span>
+<span class="ok">12/12 scenarios, 49/49 checks passed</span></pre></div></body></html>

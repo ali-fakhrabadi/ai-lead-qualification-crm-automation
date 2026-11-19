@@ -1,0 +1,32 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.2.0, pluggy-1.7.0 -- /usr/bin/python
+rootdir: /e2e
+configfile: pytest.ini
+plugins: platformdirs-4.13.0
+collecting ... collected 21 items
+
+test_scenarios.py::test_01_form_submission_runs_the_whole_pipeline PASSED [  4%]
+test_scenarios.py::test_02_redelivered_webhook_creates_one_lead_and_one_contact PASSED [  9%]
+test_scenarios.py::test_03_same_email_with_conflicting_details_goes_to_review PASSED [ 14%]
+test_scenarios.py::test_04_similar_people_are_never_merged PASSED        [ 19%]
+test_scenarios.py::test_05_invalid_email_is_rejected_with_a_clear_message PASSED [ 23%]
+test_scenarios.py::test_06_invalid_signature_is_denied PASSED            [ 28%]
+test_scenarios.py::test_07_expired_signature_is_denied PASSED            [ 33%]
+test_scenarios.py::test_08_crm_outage_is_retried_and_recovers PASSED     [ 38%]
+test_scenarios.py::test_09_permanent_crm_error_needs_an_operator PASSED  [ 42%]
+test_scenarios.py::test_10_model_outage_is_recoverable PASSED            [ 47%]
+test_scenarios.py::test_11_malformed_model_output_goes_to_review PASSED  [ 52%]
+test_scenarios.py::test_12_prompt_injection_cannot_change_the_rules PASSED [ 57%]
+test_scenarios.py::test_13_operator_edits_and_approves_then_delivery_goes_to_the_sink PASSED [ 61%]
+test_scenarios.py::test_14_rejected_follow_up_is_never_sent PASSED       [ 66%]
+test_scenarios.py::test_15_viewer_and_anonymous_cannot_change_anything PASSED [ 71%]
+test_screenshots.py::test_login_page PASSED                              [ 76%]
+test_screenshots.py::test_duplicate_queue PASSED                         [ 80%]
+test_screenshots.py::test_crm_sync_panel PASSED                          [ 85%]
+test_screenshots.py::test_audit_log PASSED                               [ 90%]
+test_screenshots.py::test_mobile_dashboard PASSED                        [ 95%]
+test_screenshots.py::test_n8n_canvas_and_executions PASSED               [100%]
+
+---------------------- generated xml file: /out/junit.xml ----------------------
+======================= 21 passed in 1699.55s (0:28:19) ========================
+exit=0

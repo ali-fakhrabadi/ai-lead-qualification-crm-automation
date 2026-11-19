@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Video card</title>
+<!-- Title and closing cards of the walkthrough video, in the portfolio series style
+     (docs/branding/portfolio-style-audit.md). ?card=title or ?card=end; rendered at 1440x900. -->
+<style>
+  :root { --bg: #0D1117; --panel: #161B22; --line: #30363D; --body: #C9D1D9; --muted: #9DA7B3; --dim: #6E7681; --green: #3FB950; --green2: #2EA043; --cyan: #38BDF8; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1440px; height: 900px; overflow: hidden; background: var(--bg); }
+  body { font-family: "Inter", "Segoe UI Variable Display", "Segoe UI", sans-serif; color: #fff; position: relative; }
+  .mono { font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace; }
+  em { font-style: normal; color: var(--green); }
+  .glow { position: absolute; inset: 0; background:
+    radial-gradient(800px 600px at 0% 100%, rgba(46, 160, 67, .30), transparent 70%),
+    radial-gradient(800px 600px at 100% 0%, rgba(56, 189, 248, .22), transparent 70%); }
+  .dots { position: absolute; inset: 0; background-image: radial-gradient(#2a3444 1.5px, transparent 1.6px); background-size: 40px 40px; opacity: .6;
+    -webkit-mask-image: radial-gradient(1000px 700px at 50% 45%, #000 10%, transparent 80%); mask-image: radial-gradient(1000px 700px at 50% 45%, #000 10%, transparent 80%); }
+  .wrap { position: absolute; inset: 0; padding: 72px 80px; display: flex; flex-direction: column; }
+  .top { display: flex; justify-content: space-between; align-items: center; }
+  .brand { display: flex; align-items: center; gap: 14px; font-size: 24px; font-weight: 700; letter-spacing: .14em; }
+  .brand i { width: 38px; height: 38px; border-radius: 10px; background: var(--green2); display: grid; place-items: center; font-style: normal; font-size: 20px; letter-spacing: 0; }
+  .brand span { color: var(--dim); font-weight: 500; letter-spacing: .08em; }
+  .kind { font-size: 21px; letter-spacing: .16em; text-transform: uppercase; color: var(--cyan); display: flex; align-items: center; gap: 12px; }
+  .kind i { width: 10px; height: 10px; border-radius: 50%; background: var(--cyan); }
+  h1 { margin-top: 120px; font-size: 96px; line-height: 1.03; font-weight: 800; letter-spacing: -.04em; max-width: 1200px; }
+  .sub { margin-top: 28px; font-size: 32px; line-height: 1.35; color: var(--body); max-width: 1100px; }
+  .flow { margin-top: auto; display: flex; gap: 14px; flex-wrap: wrap; }
+  .step { font-size: 22px; font-weight: 600; padding: 12px 20px; border-radius: 12px; background: rgba(22, 27, 34, .96); border: 2px solid var(--line); color: var(--body); }
+  .step.g { border-color: var(--green2); color: #fff; }
+  .note { margin-top: 22px; font-size: 20px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="glow"></div><div class="dots"></div>
+<div class="wrap" id="root"></div>
+<script>
+  const card = new URLSearchParams(location.search).get("card") || "title";
+  const header = `<div class="top"><div class="brand"><i>A</i>ALI F. <span>Python · AI · DevOps</span></div>
+    <div class="kind mono"><i></i>AI automation · n8n + FastAPI</div></div>`;
+  const steps = ["Form / webhook", "Dedupe", "AI qualification", "CRM sync", "Draft", "Human approval"]
+    .map((s, i) => `<span class="step mono${i === 2 || i === 5 ? " g" : ""}">${s}</span>`).join("");
+  document.getElementById("root").innerHTML = card === "title"
+    ? `${header}<h1>AI lead <em>qualification</em> &amp; CRM sync</h1>
+       <p class="sub">A product walkthrough of the running system: real UI, real n8n executions, a local model. Synthetic data only.</p>
+       <div class="flow">${steps}</div>`
+    : `${header}<h1>Nothing is sent<br>without a <em>person</em>.</h1>
+       <p class="sub">Idempotent intake, rules that decide, a model that suggests, retries that never duplicate a contact.</p>
+       <div class="flow"><span class="step mono g">github.com/ali-fakhrabadi/ai-lead-qualification-crm-automation</span></div>
+       <p class="note">Independent reference project · FastAPI · n8n · PostgreSQL · Ollama · React</p>`;
+</script>
+</body>
+</html>

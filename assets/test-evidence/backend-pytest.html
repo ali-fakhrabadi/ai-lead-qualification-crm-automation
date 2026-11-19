@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;background:#0D1117;width:1600px;font-family:"Cascadia Code",Consolas,monospace}
+.win{margin:40px;border:2px solid #30363D;border-radius:16px;overflow:hidden;background:#0D1117;
+box-shadow:0 20px 50px rgba(1,4,9,.6)}
+.bar{background:#161B22;padding:14px 20px;display:flex;gap:10px;align-items:center;
+border-bottom:2px solid #21262D}
+.bar i{width:13px;height:13px;border-radius:50%;background:#3d444d;display:inline-block}
+.bar b{margin-left:14px;color:#C9D1D9;font:600 20px "Segoe UI",Inter,sans-serif}
+.cmd{padding:18px 26px 0;color:#3FB950;font-size:18px}
+.cmd span{color:#9DA7B3}
+pre{margin:0;padding:14px 26px 26px;color:#C9D1D9;font-size:17px;line-height:1.45;
+white-space:pre-wrap;word-break:break-word}
+.ok{color:#3FB950}.bad{color:#F85149}.dim{color:#6E7681}
+</style></head><body><div class="win"><div class="bar"><i></i><i></i><i></i><b>Backend: unit + integration tests against PostgreSQL, with coverage</b></div>
+<div class="cmd"><span>$</span> pytest --cov=app --cov=crm_demo  (backend/, lab host 24.179, 2026-11-19)</div><pre>........................................................................ [ 46%]
+........................................................................ [ 93%]
+..........                                                               [100%]
+=============================== warnings summary ===============================
+../opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /opt/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/integration/test_intake.py::test_form_creates_lead_event_and_outbox_in_one_transaction
+  /opt/venv/lib/python3.12/site-packages/alembic/config.py:604: DeprecationWarning: No path_separator found in configuration; falling back to legacy splitting on spaces, commas, and colons for prepend_sys_path.  Consider adding path_separator=os to Alembic config.
+    util.warn_deprecated(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.15-final-0 _______________
+
+Name                             Stmts   Miss Branch BrPart  Cover   Missing
+----------------------------------------------------------------------------
+app/api/v1/internal.py             119      8     22      9    88%   41, 129, 138-139, 166, 182-&gt;188, 188-&gt;199, 193, 201-&gt;209, 207-&gt;209, 262-263
+app/api/v1/operator.py             174     45     30     11    70%   114-115, 120-122, 140, 142, 144, 146-156, 158, 179, 186, 215-219, 276-281, 318-325, 355-358, 403-404, 421-432, 441, 445, 449, 450-&gt;452
+app/api/v1/public.py                65      1      4      1    97%   29
+app/core/config.py                 113      0     18      1    99%   154-&gt;156
+app/core/deps.py                    66      5     12      1    90%   54-56, 74-75
+app/core/errors.py                  68      4      8      0    95%   108-109, 128-131
+app/core/logging.py                 30      1     10      1    95%   51
+app/core/passwords.py               20      2      4      2    83%   32, 34
+app/core/ratelimit.py               25      4      4      1    83%   34, 49-55
+app/core/tokens.py                  37      3      2      1    90%   59, 61-62
+app/crm/client.py                  101      8     14      1    92%   56-57, 104-110, 166
+app/crm/mapping.py                  38      2     14      4    88%   45, 65-&gt;63, 74-&gt;86, 84
+app/db/session.py                   24      3      0      0    88%   38-40
+app/delivery/mail.py                25     16      0      0    36%   23-38
+app/dispatcher/main.py              91     24     14      1    70%   94-95, 136, 143-162, 166
+app/main.py                         65      4      8      3    90%   31, 52, 84-&gt;89, 112-113
+app/qualification/prompt.py         41      1      0      0    98%   156
+app/qualification/providers.py     119     13     40     11    84%   59-&gt;61, 120-121, 123, 125, 180, 182, 184, 186, 190, 194, 205-&gt;207, 236-238
+app/qualification/rubric.py         36      1      2      1    95%   92
+app/services/auth.py                74     15     16      4    74%   66, 79, 92, 98-107, 113, 128-138
+app/services/crm_sync.py            94      2     22      5    94%   75, 102, 137-&gt;144, 144-&gt;149, 200-&gt;202
+app/services/followups.py          139     21     30     10    82%   74, 89, 96, 110-&gt;128, 118-&gt;128, 125-126, 132, 152-156, 172, 188, 254, 282-294, 305
+app/services/intake.py             131     11     48      6    91%   77, 185-&gt;exit, 212-214, 229, 231, 249, 253, 271-277
+app/services/lifecycle.py           21      0      8      1    97%   78-&gt;80
+app/services/normalize.py           78      3     20      1    96%   74, 105-106
+app/services/pipeline.py            94     15     42     12    77%   42, 61, 75-&gt;82, 77-&gt;82, 87-&gt;89, 117-135, 142, 143-&gt;145, 146-155, 191, 197, 205-&gt;204, 222-&gt;224
+app/services/qualification.py      149     16     32      6    87%   84, 140, 156-161, 172-&gt;174, 211-212, 257, 278-&gt;280, 288-302
+app/services/webhooks.py            26      2      8      0    94%   45-46
+crm_demo/app.py                    182     33     26      9    80%   133, 148, 204-&gt;203, 205-&gt;204, 207, 212-214, 236, 256-260, 279, 284, 305-309, 386, 406-407, 436-481
+----------------------------------------------------------------------------
+TOTAL                             2964    263    486    103    89%
+
+18 files skipped due to complete coverage.
+<span class="ok">154 passed, 2 warnings in 40.22s</span></pre></div></body></html>

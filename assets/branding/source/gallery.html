@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gallery image</title>
+<!-- Catalog gallery images, hero and social preview in the portfolio series style.
+     ?g=hero|workflow|crm|approval|social ; 1600x1200 (social: 1280x640). Images are real
+     screenshots from assets/screenshots/. Metrics shown are measured (see the benchmark). -->
+<style>
+  :root { --bg: #0D1117; --panel: #161B22; --line: #30363D; --soft: #21262D; --body: #C9D1D9; --muted: #9DA7B3; --dim: #6E7681; --green: #3FB950; --green2: #2EA043; --cyan: #38BDF8; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1600px; height: 1200px; overflow: hidden; background: var(--bg); }
+  body.social { width: 1280px; height: 640px; }
+  body { font-family: "Inter", "Segoe UI Variable Display", "Segoe UI", sans-serif; color: #fff; position: relative; }
+  .mono { font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace; }
+  em { font-style: normal; color: var(--green); }
+  .glow { position: absolute; inset: 0; background:
+    radial-gradient(900px 700px at 0% 100%, rgba(46, 160, 67, .30), transparent 70%),
+    radial-gradient(900px 700px at 100% 0%, rgba(56, 189, 248, .22), transparent 70%); }
+  .dots { position: absolute; inset: 0; background-image: radial-gradient(#2a3444 1.6px, transparent 1.7px); background-size: 44px 44px; opacity: .6;
+    -webkit-mask-image: radial-gradient(1100px 800px at 50% 40%, #000 10%, transparent 80%); mask-image: radial-gradient(1100px 800px at 50% 40%, #000 10%, transparent 80%); }
+  .wrap { position: absolute; inset: 0; padding: 72px 80px 0; }
+  .top { display: flex; justify-content: space-between; align-items: center; }
+  .brand { display: flex; align-items: center; gap: 16px; font-size: 26px; font-weight: 700; letter-spacing: .14em; }
+  .brand i { width: 40px; height: 40px; border-radius: 11px; background: var(--green2); display: grid; place-items: center; font-style: normal; font-size: 22px; letter-spacing: 0; }
+  .brand span { color: var(--dim); font-weight: 500; letter-spacing: .08em; }
+  .kind { font-size: 22px; letter-spacing: .16em; text-transform: uppercase; color: var(--cyan); display: flex; align-items: center; gap: 14px; }
+  .kind i { width: 11px; height: 11px; border-radius: 50%; background: var(--cyan); }
+  h1 { margin-top: 44px; font-size: 76px; line-height: 1.04; font-weight: 800; letter-spacing: -.035em; max-width: 1440px; }
+  .sub { margin-top: 18px; font-size: 30px; line-height: 1.32; color: var(--body); max-width: 1380px; }
+  .frame { position: absolute; left: 80px; right: 80px; bottom: 70px; border-radius: 20px; overflow: hidden; border: 2px solid var(--line); background: var(--bg); box-shadow: 0 20px 60px rgba(1, 4, 9, .7); }
+  .frame .tb { height: 44px; background: var(--panel); display: flex; align-items: center; gap: 10px; padding-left: 20px; border-bottom: 2px solid var(--soft); }
+  .frame .tb i { width: 13px; height: 13px; border-radius: 50%; background: #3d444d; }
+  .frame img { display: block; width: 100%; object-fit: cover; }
+  .chips { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+  .chip { font-size: 22px; font-weight: 600; padding: 10px 18px; border-radius: 12px; background: rgba(22, 27, 34, .96); border: 2px solid var(--line); color: var(--body); }
+  .chip.g { border-color: var(--green2); color: #fff; }
+  .metrics { display: flex; gap: 22px; margin-top: 36px; }
+  .m { flex: 1; border-radius: 22px; background: rgba(22, 27, 34, .96); border: 2px solid var(--line); padding: 24px 28px; }
+  .m.g { border-color: var(--green2); }
+  .m b { display: block; font-size: 68px; font-weight: 700; letter-spacing: -.04em; line-height: 1; color: var(--green); white-space: nowrap; }
+  .m.c b { color: var(--cyan); }
+  .m span { display: block; margin-top: 10px; font-size: 24px; line-height: 1.3; color: var(--muted); }
+  /* social preview */
+  body.social .wrap { padding: 52px 60px; }
+  body.social h1 { font-size: 64px; margin-top: 48px; }
+  body.social .sub { font-size: 26px; max-width: 1100px; }
+</style>
+</head>
+<body>
+<div class="glow"></div><div class="dots"></div>
+<div id="root"></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const g = q.get("g") || "hero";
+  const S = "../../screenshots/";
+  const M = JSON.parse(q.get("m") || "[]");  // measured metrics: [["value","caption"], ...]
+  const header = `<div class="top"><div class="brand"><i>A</i>ALI F. <span>Python · AI · DevOps</span></div>
+    <div class="kind mono"><i></i>AI automation · n8n + FastAPI</div></div>`;
+  const frame = (img, h, pos) => `<div class="frame" style="height:${h}px"><div class="tb"><i></i><i></i><i></i></div>
+    <img src="${S + img}" style="height:${h - 44}px;object-position:${pos || 'left top'}" alt=""></div>`;
+  const G = {
+    hero: () => `${header}<h1>AI lead <em>qualification</em> &amp; CRM sync with n8n</h1>
+      <p class="sub">Form or webhook in, duplicates stopped, a model suggests, your rules decide, the CRM is updated, and a person approves every reply.</p>
+      <div class="metrics">${M.map((m, i) => `<div class="m ${i ? "c" : "g"}"><b class="mono">${m[0]}</b><span>${m[1]}</span></div>`).join("")}</div>
+      <div class="chips mono"><span class="chip">FastAPI</span><span class="chip">n8n</span><span class="chip">Ollama / OpenAI</span><span class="chip">HubSpot-style CRM</span><span class="chip">Docker</span></div>`,
+    workflow: () => `${header}<h1><em>n8n</em> runs every step, with retries</h1>
+      <p class="sub">Signed events, the API decides the next step, backoff with jitter and Retry-After, an error workflow, and an outcome report for every run.</p>${frame("09-n8n-workflow-canvas.png", 760, "center 40%")}`,
+    crm: () => `${header}<h1>Rules decide, the <em>CRM</em> stays clean</h1>
+      <p class="sub">Score and decision from code, evidence checked against the message, contact found by email before anything is created.</p>${frame("04-lead-detail-qualification.png", 760)}`,
+    approval: () => `${header}<h1>Nothing is sent without a <em>person</em></h1>
+      <p class="sub">The operator edits the drafted reply, approves or rejects it; delivery goes to the configured channel once, and is audited.</p>${frame("07-follow-up-human-approval.png", 760)}`,
+    social: () => `${header}<h1>AI lead <em>qualification</em> &amp;<br>CRM automation</h1>
+      <p class="sub">FastAPI + self-hosted n8n · idempotent intake · rules around a local model · human-approved follow-ups</p>
+      <div class="chips mono" style="position:absolute;left:60px;bottom:52px">${["Form / webhook", "Dedupe", "AI qualification", "CRM sync", "Draft", "Human approval"].map((s, i) => `<span class="chip${i === 2 || i === 5 ? " g" : ""}">${s}</span>`).join("")}</div>`,
+  };
+  if (g === "social") document.body.classList.add("social");
+  document.getElementById("root").innerHTML = `<div class="wrap">${G[g]()}</div>`;
+</script>
+</body>
+</html>

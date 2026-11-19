@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Architecture</title>
+<!-- Architecture diagram in the portfolio series style. Rendered at 1600x1000:
+     msedge --headless=new --window-size=1600,1000 --screenshot=... architecture.html -->
+<style>
+  html, body { margin: 0; width: 1600px; height: 1000px; overflow: hidden; background: #0D1117; }
+  body { font-family: "Inter", "Segoe UI Variable Display", "Segoe UI", sans-serif; }
+  text { fill: #C9D1D9; }
+  .t { font-size: 22px; font-weight: 700; fill: #fff; }
+  .s { font-size: 16px; fill: #9DA7B3; }
+  .m { font-family: "Cascadia Code", Consolas, monospace; font-size: 15px; fill: #9DA7B3; }
+  .h { font-size: 15px; letter-spacing: .16em; fill: #38BDF8; font-family: "Cascadia Code", Consolas, monospace; }
+  .box { fill: #161B22; stroke: #30363D; stroke-width: 2; }
+  .g { stroke: #2EA043; }
+  .c { stroke: #38BDF8; }
+  .zone { fill: none; stroke: #30363D; stroke-width: 2; stroke-dasharray: 8 7; }
+  .ar { stroke: #6E7681; stroke-width: 2.5; fill: none; marker-end: url(#a); }
+  .arg { stroke: #3FB950; stroke-width: 3; fill: none; marker-end: url(#ag); }
+  .lbl { font-size: 14px; fill: #9DA7B3; font-family: "Cascadia Code", Consolas, monospace; }
+</style>
+</head>
+<body>
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6E7681"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3FB950"/></marker>
+    <radialGradient id="gl1" cx="0" cy="1" r="0.8"><stop offset="0" stop-color="#2EA043" stop-opacity=".22"/><stop offset="1" stop-color="#2EA043" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gl2" cx="1" cy="0" r="0.8"><stop offset="0" stop-color="#38BDF8" stop-opacity=".16"/><stop offset="1" stop-color="#38BDF8" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#gl1)"/><rect width="1600" height="1000" fill="url(#gl2)"/>
+
+  <text x="60" y="70" class="h">AI LEAD QUALIFICATION &amp; CRM AUTOMATION · ARCHITECTURE</text>
+  <text x="60" y="108" style="font-size:34px;font-weight:800;fill:#fff">FastAPI decides, <tspan style="fill:#3FB950">n8n orchestrates</tspan>, the model suggests</text>
+
+  <!-- sources -->
+  <rect x="60" y="210" width="230" height="86" rx="14" class="box"/>
+  <text x="80" y="246" class="t">Web form</text><text x="80" y="274" class="s">consent · honeypot</text>
+  <rect x="60" y="330" width="230" height="86" rx="14" class="box"/>
+  <text x="80" y="366" class="t">Partner webhook</text><text x="80" y="394" class="s">HMAC · 300 s window</text>
+  <rect x="60" y="690" width="230" height="86" rx="14" class="box c"/>
+  <text x="80" y="726" class="t">Operator</text><text x="80" y="754" class="s">review · approve · audit</text>
+
+  <!-- app host zone -->
+  <rect x="340" y="160" width="900" height="790" rx="22" class="zone"/>
+  <text x="362" y="192" class="h">LAB HOST 24.179 · DOCKER COMPOSE · INTERNAL NETWORK</text>
+
+  <rect x="370" y="250" width="230" height="110" rx="14" class="box"/>
+  <text x="390" y="290" class="t">nginx + React</text><text x="390" y="318" class="s">only public entry</text><text x="390" y="342" class="s">/internal/ → 404</text>
+
+  <rect x="660" y="230" width="270" height="250" rx="14" class="box g"/>
+  <text x="680" y="270" class="t">FastAPI</text>
+  <text x="680" y="302" class="m">validate · normalise</text>
+  <text x="680" y="327" class="m">idempotency · dedupe</text>
+  <text x="680" y="352" class="m">lifecycle state machine</text>
+  <text x="680" y="377" class="m">schema + rules decide</text>
+  <text x="680" y="402" class="m">CRM adapter · drafts</text>
+  <text x="680" y="427" class="m">auth · roles · audit</text>
+  <text x="680" y="452" class="m">delivery (sink only)</text>
+
+  <rect x="660" y="560" width="270" height="120" rx="14" class="box"/>
+  <text x="680" y="600" class="t">PostgreSQL</text><text x="680" y="630" class="m">leads · events · outbox</text><text x="680" y="655" class="m">assessments · audit</text>
+
+  <rect x="370" y="560" width="230" height="120" rx="14" class="box"/>
+  <text x="390" y="600" class="t">Dispatcher</text><text x="390" y="630" class="m">SKIP LOCKED · backoff</text><text x="390" y="655" class="m">JWT + payload hash</text>
+
+  <rect x="370" y="760" width="560" height="150" rx="14" class="box c"/>
+  <text x="390" y="800" class="t">n8n + task runners</text>
+  <text x="390" y="832" class="m">lead pipeline: next step → qualify → CRM → draft</text>
+  <text x="390" y="857" class="m">retries: exponential, jitter, Retry-After, Wait nodes</text>
+  <text x="390" y="882" class="m">delivery after approval · error workflow</text>
+
+  <rect x="990" y="250" width="220" height="100" rx="14" class="box"/>
+  <text x="1010" y="290" class="t">Demo CRM</text><text x="1010" y="320" class="s">HubSpot-shaped API</text>
+  <rect x="990" y="400" width="220" height="100" rx="14" class="box"/>
+  <text x="1010" y="440" class="t">Mailpit</text><text x="1010" y="470" class="s">mail sink, nothing leaves</text>
+
+  <!-- model host -->
+  <rect x="1300" y="160" width="250" height="330" rx="22" class="zone"/>
+  <text x="1318" y="192" class="h">LAB HOST 24.176</text>
+  <rect x="1325" y="230" width="200" height="140" rx="14" class="box g"/>
+  <text x="1345" y="270" class="t">Ollama</text><text x="1345" y="300" class="m">llama3.1 8B</text><text x="1345" y="325" class="m">Q4_K_M · CPU</text><text x="1345" y="350" class="s">JSON schema output</text>
+  <text x="1325" y="420" class="s">OpenAI optional</text><text x="1325" y="446" class="s">(explicit setting)</text>
+
+  <rect x="1300" y="560" width="250" height="250" rx="18" class="box"/>
+  <text x="1320" y="598" class="h">GUARANTEES</text>
+  <text x="1320" y="636" class="s">no duplicate leads,</text><text x="1320" y="660" class="s">runs or CRM contacts</text>
+  <text x="1320" y="698" class="s">rules decide; doubt</text><text x="1320" y="722" class="s">goes to a person</text>
+  <text x="1320" y="760" class="s">nothing sent without</text><text x="1320" y="784" class="s">human approval</text>
+
+  <!-- arrows -->
+  <path d="M290 253 L370 290" class="arg"/>
+  <path d="M290 373 L370 320" class="arg"/>
+  <path d="M290 733 C 330 733, 330 330, 370 330" class="ar"/>
+  <path d="M600 305 L660 305" class="arg"/>
+  <path d="M795 480 L795 560" class="arg"/><text x="805" y="525" class="lbl">one transaction</text>
+  <path d="M660 640 L600 640" class="ar"/><text x="608" y="628" class="lbl">poll</text>
+  <path d="M485 680 L485 760" class="arg"/><text x="495" y="725" class="lbl">signed event</text>
+  <path d="M840 760 C 960 700, 960 520, 900 480" class="ar"/><text x="935" y="640" class="lbl">service token</text>
+  <path d="M930 300 L990 300" class="arg"/><text x="936" y="288" class="lbl">upsert</text>
+  <path d="M930 450 L990 450" class="ar"/><text x="934" y="438" class="lbl">approved</text>
+  <path d="M930 260 C 1100 200, 1220 210, 1325 270" class="arg"/><text x="1120" y="205" class="lbl">business fields only</text>
+  <path d="M930 860 C 1100 860, 1100 640, 1100 502" class="ar"/><text x="1110" y="700" class="lbl">notify operators</text>
+</svg>
+</body>
+</html>

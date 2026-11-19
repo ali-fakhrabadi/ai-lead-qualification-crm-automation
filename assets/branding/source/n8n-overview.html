@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>n8n workflow overview</title>
+<!-- Overview of the three n8n workflows (portfolio series style), rendered at 1600x900.
+     The real editor canvas is assets/screenshots/09-n8n-workflow-canvas.png. -->
+<style>
+  html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: #0D1117; }
+  body { font-family: "Inter", "Segoe UI Variable Display", "Segoe UI", sans-serif; }
+  .t { font-size: 20px; font-weight: 700; fill: #fff; }
+  .s { font-size: 15px; fill: #9DA7B3; }
+  .m { font-family: "Cascadia Code", Consolas, monospace; font-size: 14px; fill: #9DA7B3; }
+  .h { font-size: 15px; letter-spacing: .16em; fill: #38BDF8; font-family: "Cascadia Code", Consolas, monospace; }
+  .box { fill: #161B22; stroke: #30363D; stroke-width: 2; }
+  .g { stroke: #2EA043; } .c { stroke: #38BDF8; } .a { stroke: #D29922; }
+  .ar { stroke: #6E7681; stroke-width: 2.5; fill: none; marker-end: url(#a); }
+  .arg { stroke: #3FB950; stroke-width: 3; fill: none; marker-end: url(#ag); }
+  .loop { stroke: #D29922; stroke-width: 2.5; fill: none; stroke-dasharray: 7 6; marker-end: url(#aa); }
+  .lbl { font-size: 13px; fill: #9DA7B3; font-family: "Cascadia Code", Consolas, monospace; }
+</style>
+</head>
+<body>
+<svg width="1600" height="900" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6E7681"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3FB950"/></marker>
+    <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#D29922"/></marker>
+    <radialGradient id="gl1" cx="0" cy="1" r="0.8"><stop offset="0" stop-color="#2EA043" stop-opacity=".2"/><stop offset="1" stop-color="#2EA043" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gl2" cx="1" cy="0" r="0.8"><stop offset="0" stop-color="#38BDF8" stop-opacity=".15"/><stop offset="1" stop-color="#38BDF8" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#gl1)"/><rect width="1600" height="900" fill="url(#gl2)"/>
+  <text x="60" y="70" class="h">N8N · THREE WORKFLOWS · GENERATED FROM ONE DEFINITION</text>
+  <text x="60" y="108" style="font-size:32px;font-weight:800;fill:#fff">Every step <tspan style="fill:#3FB950">retried safely</tspan>, every run reported</text>
+
+  <text x="60" y="175" class="h">1 · LEAD PIPELINE</text>
+  <rect x="60" y="200" width="190" height="96" rx="12" class="box c"/><text x="78" y="236" class="t">Signed event</text><text x="78" y="262" class="m">JWT + payload hash</text><text x="78" y="282" class="m">from the outbox</text>
+  <rect x="285" y="200" width="170" height="96" rx="12" class="box"/><text x="303" y="236" class="t">Verify</text><text x="303" y="262" class="m">issuer · audience</text><text x="303" y="282" class="m">event id · hash</text>
+  <rect x="490" y="200" width="170" height="96" rx="12" class="box"/><text x="508" y="236" class="t">Next step?</text><text x="508" y="262" class="m">asks the API:</text><text x="508" y="282" class="m">resume, no repeats</text>
+  <rect x="695" y="200" width="190" height="96" rx="12" class="box g"/><text x="713" y="236" class="t">Qualify</text><text x="713" y="262" class="m">model + schema</text><text x="713" y="282" class="m">+ rules decide</text>
+  <rect x="920" y="200" width="190" height="96" rx="12" class="box g"/><text x="938" y="236" class="t">CRM upsert</text><text x="938" y="262" class="m">contact · company</text><text x="938" y="282" class="m">· note</text>
+  <rect x="1145" y="200" width="190" height="96" rx="12" class="box g"/><text x="1163" y="236" class="t">Draft reply</text><text x="1163" y="262" class="m">never sent here</text><text x="1163" y="282" class="m">notify operators</text>
+  <rect x="1370" y="200" width="170" height="96" rx="12" class="box"/><text x="1388" y="236" class="t">Report</text><text x="1388" y="262" class="m">success · stopped</text><text x="1388" y="282" class="m">· error</text>
+  <path d="M250 248 L285 248" class="arg"/><path d="M455 248 L490 248" class="arg"/><path d="M660 248 L695 248" class="arg"/>
+  <path d="M885 248 L920 248" class="arg"/><path d="M1110 248 L1145 248" class="arg"/><path d="M1335 248 L1370 248" class="arg"/>
+  <path d="M760 296 C 740 360, 830 360, 810 300" class="loop"/>
+  <path d="M985 296 C 965 360, 1055 360, 1035 300" class="loop"/>
+  <path d="M1210 296 C 1190 360, 1280 360, 1260 300" class="loop"/>
+  <text x="700" y="385" class="lbl" style="fill:#D29922">429 / 5xx / timeout: wait (exponential, full jitter, Retry-After, ≤ 60 s), call again · 3 attempts per run</text>
+  <text x="700" y="410" class="lbl">4xx: stop for an operator · review needed: stop · attempts used up: report "error" → redelivered</text>
+
+  <text x="60" y="500" class="h">2 · FOLLOW-UP DELIVERY (ONLY AFTER A PERSON APPROVES)</text>
+  <rect x="60" y="525" width="250" height="96" rx="12" class="box a"/><text x="78" y="561" class="t">Approval event</text><text x="78" y="587" class="m">operator approved</text><text x="78" y="607" class="m">a draft (audited)</text>
+  <rect x="345" y="525" width="190" height="96" rx="12" class="box"/><text x="363" y="561" class="t">Verify</text><text x="363" y="587" class="m">same checks</text>
+  <rect x="570" y="525" width="230" height="96" rx="12" class="box g"/><text x="588" y="561" class="t">Deliver once</text><text x="588" y="587" class="m">to the mail sink;</text><text x="588" y="607" class="m">a replay never resends</text>
+  <rect x="835" y="525" width="170" height="96" rx="12" class="box"/><text x="853" y="561" class="t">Report</text>
+  <path d="M310 573 L345 573" class="arg"/><path d="M535 573 L570 573" class="arg"/><path d="M800 573 L835 573" class="arg"/>
+  <path d="M655 621 C 635 685, 725 685, 705 625" class="loop"/>
+
+  <text x="60" y="730" class="h">3 · ERROR HANDLER</text>
+  <rect x="60" y="755" width="250" height="96" rx="12" class="box a"/><text x="78" y="791" class="t">Unexpected failure</text><text x="78" y="817" class="m">any node, any run</text>
+  <rect x="345" y="755" width="300" height="96" rx="12" class="box"/><text x="363" y="791" class="t">Report ids only</text><text x="363" y="817" class="m">execution · workflow · node</text><text x="363" y="837" class="m">no lead data</text>
+  <rect x="680" y="755" width="325" height="96" rx="12" class="box g"/><text x="698" y="791" class="t">API: retry_pending</text><text x="698" y="817" class="m">at the stage reached;</text><text x="698" y="837" class="m">event redelivered with backoff</text>
+  <path d="M310 803 L345 803" class="arg"/><path d="M645 803 L680 803" class="arg"/>
+
+  <rect x="1100" y="500" width="440" height="351" rx="18" class="box"/>
+  <text x="1124" y="540" class="h">TESTED IN A DISPOSABLE N8N</text>
+  <text x="1124" y="580" class="s">replayed events · CRM 429 with Retry-After</text>
+  <text x="1124" y="608" class="s">CRM outage exhausting attempts</text>
+  <text x="1124" y="636" class="s">permanent CRM error · model unavailable</text>
+  <text x="1124" y="664" class="s">invalid model output · draft retried</text>
+  <text x="1124" y="692" class="s">wrong key, expired token, tampered payload</text>
+  <text x="1124" y="720" class="s">error workflow · delivery replay</text>
+  <text x="1124" y="790" style="font-size:44px;font-weight:700;fill:#3FB950;font-family:'Cascadia Code',Consolas,monospace">49 / 49</text>
+  <text x="1124" y="826" class="s">harness checks passed (12 scenarios)</text>
+</svg>
+</body>
+</html>
