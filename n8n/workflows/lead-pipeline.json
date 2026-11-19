@@ -1,0 +1,1376 @@
+{
+  "id": "leadPipeline0001",
+  "name": "Lead pipeline: intake, AI qualification, CRM, follow-up draft",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 1. Lead intake orchestration\nFastAPI stores each lead and an outbox event in one transaction; the dispatcher posts the event here with a short-lived signed token. **Verify event** checks the token was issued for exactly this payload. The run is linked to the event, then the API says which step the lead needs next, so replays and resumed events continue where the lead stands.",
+        "width": 1320,
+        "height": 220,
+        "color": 7
+      },
+      "id": "32dd5016-8630-5f77-9241-0f180183b0aa",
+      "name": "Note: intake",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-events",
+        "authentication": "jwtAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e0c02559-6739-5406-a988-d0f6d94f9d75",
+      "name": "Lead event webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        200
+      ],
+      "webhookId": "cc653e68-5fec-54fa-ae40-ded73c005f85",
+      "credentials": {
+        "jwtAuth": {
+          "id": "leadDispatchJwt1",
+          "name": "Lead dispatcher signature"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "995e6cfc-9e77-56dd-884a-b90b9b89c12d",
+              "name": "api_url",
+              "value": "http://api:8000",
+              "type": "string"
+            },
+            {
+              "id": "34960fe8-3e64-5d1f-94f2-941fbdb41125",
+              "name": "operator_email",
+              "value": "operators@northwind-automation.example",
+              "type": "string"
+            },
+            {
+              "id": "0dc3058d-d6e0-5aa7-84a6-a3d9264d6a22",
+              "name": "mail_from",
+              "value": "lead-automation@northwind-automation.example",
+              "type": "string"
+            },
+            {
+              "id": "9065f4b5-c4ff-5916-a00e-d8092740415e",
+              "name": "dashboard_url",
+              "value": "http://localhost:8080",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f0d90b55-e8f9-57f0-8d6b-db0d9ba5839f",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code node \"Verify event\" (run once for all items).\n//\n// The Webhook node has already checked the HS256 signature and expiry of the dispatcher's\n// token (JWT auth credential). This node checks what it cannot: issuer and audience, that\n// the token was issued for exactly this payload (its SHA-256 is a signed claim) and for this\n// event id, and that the envelope is well formed. A captured token is useless with any\n// other body and expires within minutes.\nconst crypto = require('crypto');\n\nconst WEBHOOK_NODE = 'Lead event webhook';\nconst EVENT_TYPES = [\"lead.received\", \"lead.resume\"];\nconst ISSUER = 'lead-automation-dispatcher';\nconst AUDIENCE = 'n8n';\nconst MAX_PAYLOAD_CHARS = 65536;\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;\n\nconst request = $(WEBHOOK_NODE).first().json;\nconst claims = request.jwtPayload || {};\nconst raw = request.body ? request.body.payload : undefined;\n\nfunction reject(reason) {\n  return [{ json: { valid: false, reason } }];\n}\n\nif (typeof raw !== 'string' || raw.length === 0) {\n  return reject('body.payload must be a non-empty JSON string');\n}\nif (raw.length > MAX_PAYLOAD_CHARS) {\n  return reject('payload is too large');\n}\nif (claims.iss !== ISSUER || claims.aud !== AUDIENCE) {\n  return reject('unexpected token issuer or audience');\n}\nconst digest = crypto.createHash('sha256').update(raw, 'utf8').digest('hex');\nif (digest !== claims.payload_sha256) {\n  return reject('the payload does not match the token');\n}\nlet event;\ntry {\n  event = JSON.parse(raw);\n} catch (error) {\n  return reject('the payload is not valid JSON');\n}\nif (!UUID.test(String(event.event_id)) || event.event_id !== claims.eid) {\n  return reject('the payload is for another event');\n}\nif (!EVENT_TYPES.includes(event.event_type)) {\n  return reject(`unsupported event type ${event.event_type}`);\n}\nif (!UUID.test(String(event.lead_id))) {\n  return reject('lead_id is missing or invalid');\n}\nconst data = event.data && typeof event.data === 'object' ? event.data : {};\nif (data.draft_id !== undefined && !UUID.test(String(data.draft_id))) {\n  return reject('draft_id is invalid');\n}\nreturn [\n  {\n    json: {\n      valid: true,\n      event_id: event.event_id,\n      event_type: event.event_type,\n      lead_id: event.lead_id,\n      correlation_id: String(event.correlation_id || '').slice(0, 64),\n      attempt: Number(event.attempt) || 1,\n      data,\n      started_at: Date.now(),\n    },\n  },\n];\n"
+      },
+      "id": "052e9356-128f-53a0-a4c5-7e298d0e42cb",
+      "name": "Verify event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "074907af-82c4-5c10-ad25-2c9e8830761e",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2f4920d1-8379-52f4-abb1-409c83a83436",
+      "name": "Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"accepted\": true}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "12eb629a-1911-5e71-920d-8988eda5f970",
+      "name": "Accept",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: $json.reason }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "e200db16-7971-55c0-9b2e-e5867643dd67",
+      "name": "Reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api_url }}/internal/v1/events/{{ $('Verify event').first().json.event_id }}/started",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ execution_id: String($execution.id) }) }}"
+      },
+      "id": "dbb63a9c-4a37-5260-8bc9-74bdc0e946cd",
+      "name": "Link execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "leadApiToken0001",
+          "name": "Lead API service token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Settings').first().json.api_url }}/internal/v1/leads/{{ $('Verify event').first().json.lead_id }}/next-step",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "0e44e2cf-1966-569a-8678-4c7880931e44",
+      "name": "Next step",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "leadApiToken0001",
+          "name": "Lead API service token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f041b641-f542-59d4-accb-787d5f245783",
+                    "leftValue": "={{ $json.next }}",
+                    "rightValue": "qualify",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "qualify"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3312ead1-8996-522b-a2a0-5f2ed42bd6a7",
+                    "leftValue": "={{ $json.next }}",
+                    "rightValue": "crm_sync",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "crm_sync"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "31be91b9-a683-54af-bc82-60f433ef9c46",
+                    "leftValue": "={{ $json.next }}",
+                    "rightValue": "follow_up_draft",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "follow_up_draft"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "d9e2d71b-ec03-5db0-bbdf-aea7ee25a9d1",
+      "name": "Route next step",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1540,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. AI qualification\nFastAPI calls the configured model (Ollama by default) with business fields only, validates the JSON against a strict schema and applies deterministic rules: the model never decides alone. 503 (model busy or down) is retried with exponential backoff and jitter; the lead is never lost.",
+        "width": 1100,
+        "height": 230,
+        "color": 7
+      },
+      "id": "ed095a95-992d-5afe-b576-72781a4744c7",
+      "name": "Note: qualification",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api_url }}/internal/v1/leads/{{ $('Verify event').first().json.lead_id }}/qualify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ force: $('Verify event').first().json.data.force === true }) }}"
+      },
+      "id": "218bf4ef-f5fc-566a-8b50-7ea3475f1d23",
+      "name": "Qualify lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        -160
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "leadApiToken0001",
+          "name": "Lead API service token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code node \"Plan <step> retry\" (run once for all items), placed after an HTTP Request node\n// that returns the full response and never throws on HTTP errors.\n//\n// Classifies the API's answer and decides what happens next:\n//   ok          2xx: continue with the step the API names in body.next\n//   retry       transient (connection error, 429, 5xx): wait, then call again\n//   exhausted   transient, but the attempts for this run are used up: stop this run with an\n//               error so the event is delivered again later (the dispatcher backs off)\n//   permanent   4xx: stop; an operator must act (nothing is retried automatically)\n//\n// The wait grows exponentially with full jitter and honours Retry-After, capped at 60 s.\nconst STEP = 'qualify';\nconst MAX_ATTEMPTS = 3;\nconst BASE_WAIT_S = 20;\n\nconst response = $json || {};\nconst status = Number(response.statusCode || 0);\nconst body = response.body && typeof response.body === 'object' ? response.body : {};\nconst attempt = $runIndex + 1;\n\nlet route;\nif (status >= 200 && status < 300) {\n  route = 'ok';\n} else if (status === 0 || status === 429 || status >= 500) {\n  route = attempt < MAX_ATTEMPTS ? 'retry' : 'exhausted';\n} else {\n  route = 'permanent';\n}\n\nlet waitS = 0;\nif (route === 'retry') {\n  const headers = response.headers || {};\n  const retryAfter = Number(headers['retry-after'] || 0);\n  const ceiling = Math.min(60, BASE_WAIT_S * 2 ** (attempt - 1));\n  const jittered = Math.max(1, Math.round(ceiling / 2 + Math.random() * (ceiling / 2)));\n  waitS = Math.min(60, Math.max(jittered, retryAfter));\n}\n\nconst error = body.error || {};\nreturn [\n  {\n    json: {\n      step: STEP,\n      route,\n      attempt,\n      status_code: status,\n      wait_s: waitS,\n      next: route === 'ok' ? String(body.next || 'stop') : 'stop',\n      lead_status: body.status || null,\n      detail: body.detail || {},\n      error: route === 'ok' ? null : String(error.code || (response.error && response.error.message) || `HTTP ${status}`).slice(0, 200),\n    },\n  },\n];\n"
+      },
+      "id": "d97ac60c-df77-52a7-9795-25d052def6e0",
+      "name": "Plan qualification retry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e1d01a3c-082d-5f7c-9045-dba130473a98",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "ok",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ok"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "bbb2f07d-86bb-52d5-9a82-e3d5f7a56d83",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "retry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "retry"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "17897832-5e2d-5b5c-9996-31e3056be9f6",
+      "name": "Qualification outcome",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2200,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.wait_s }}",
+        "unit": "seconds"
+      },
+      "id": "0807e3b2-201e-5690-bac5-8da80cdb4c52",
+      "name": "Wait before qualification retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        60
+      ],
+      "webhookId": "a2d65761-8d96-5316-9d33-5fe672466909"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "82b26925-c112-5ad5-ae59-8336bc5f569a",
+                    "leftValue": "={{ $json.next }}",
+                    "rightValue": "crm_sync",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "crm_sync"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b7816fd1-dca8-5aab-919e-2c887db785e6",
+                    "leftValue": "={{ $json.next }}",
+                    "rightValue": "follow_up_draft",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "follow_up_draft"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "8541a995-9217-5120-b0fa-2c4727d491d8",
+      "name": "After qualification",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2420,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. CRM upsert\nCreate or update the contact (found by email first, so no duplicates), company and qualification note. Transient CRM errors (429/5xx) are retried; permanent ones (4xx) stop and show the lead to an operator.",
+        "width": 1100,
+        "height": 200,
+        "color": 7
+      },
+      "id": "2ff6a530-6575-5294-8883-93766e4e1646",
+      "name": "Note: crm",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api_url }}/internal/v1/leads/{{ $('Verify event').first().json.lead_id }}/crm-sync",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}"
+      },
+      "id": "b0eb20b8-42bb-5cef-8194-d34f609a0f02",
+      "name": "Sync CRM contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        480
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "leadApiToken0001",
+          "name": "Lead API service token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code node \"Plan <step> retry\" (run once for all items), placed after an HTTP Request node\n// that returns the full response and never throws on HTTP errors.\n//\n// Classifies the API's answer and decides what happens next:\n//   ok          2xx: continue with the step the API names in body.next\n//   retry       transient (connection error, 429, 5xx): wait, then call again\n//   exhausted   transient, but the attempts for this run are used up: stop this run with an\n//               error so the event is delivered again later (the dispatcher backs off)\n//   permanent   4xx: stop; an operator must act (nothing is retried automatically)\n//\n// The wait grows exponentially with full jitter and honours Retry-After, capped at 60 s.\nconst STEP = 'crm_sync';\nconst MAX_ATTEMPTS = 3;\nconst BASE_WAIT_S = 10;\n\nconst response = $json || {};\nconst status = Number(response.statusCode || 0);\nconst body = response.body && typeof response.body === 'object' ? response.body : {};\nconst attempt = $runIndex + 1;\n\nlet route;\nif (status >= 200 && status < 300) {\n  route = 'ok';\n} else if (status === 0 || status === 429 || status >= 500) {\n  route = attempt < MAX_ATTEMPTS ? 'retry' : 'exhausted';\n} else {\n  route = 'permanent';\n}\n\nlet waitS = 0;\nif (route === 'retry') {\n  const headers = response.headers || {};\n  const retryAfter = Number(headers['retry-after'] || 0);\n  const ceiling = Math.min(60, BASE_WAIT_S * 2 ** (attempt - 1));\n  const jittered = Math.max(1, Math.round(ceiling / 2 + Math.random() * (ceiling / 2)));\n  waitS = Math.min(60, Math.max(jittered, retryAfter));\n}\n\nconst error = body.error || {};\nreturn [\n  {\n    json: {\n      step: STEP,\n      route,\n      attempt,\n      status_code: status,\n      wait_s: waitS,\n      next: route === 'ok' ? String(body.next || 'stop') : 'stop',\n      lead_status: body.status || null,\n      detail: body.detail || {},\n      error: route === 'ok' ? null : String(error.code || (response.error && response.error.message) || `HTTP ${status}`).slice(0, 200),\n    },\n  },\n];\n"
+      },
+      "id": "01e78490-7cd4-5975-8ac9-4da73ef5a2df",
+      "name": "Plan CRM retry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "565ca10c-6dd3-5773-a846-35bf3602b583",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "ok",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ok"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f1b0961b-dcfc-5f21-875b-15b9bffc3047",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "retry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "retry"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "d2b2c16c-2948-5afe-89e6-07119ed85bb5",
+      "name": "CRM outcome",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2200,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.wait_s }}",
+        "unit": "seconds"
+      },
+      "id": "61eccc17-ce82-5aa9-a7be-565a2314950a",
+      "name": "Wait before CRM retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        700
+      ],
+      "webhookId": "5bae59d1-5072-58ec-a5b7-af626db60763"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "34604823-5d37-5229-8bff-f6b87264aae8",
+                    "leftValue": "={{ $json.next }}",
+                    "rightValue": "follow_up_draft",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "follow_up_draft"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "009aacaf-ad5d-5b0e-8b15-b3d9432b35ea",
+      "name": "After CRM",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2420,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Follow-up draft and human approval\nA draft reply is generated and waits for a person to edit, approve or reject it. Nothing is sent here: n8n only notifies the operators' mailbox (the local Mailpit sink in the demo).",
+        "width": 1100,
+        "height": 200,
+        "color": 7
+      },
+      "id": "e4dbcc4b-08ad-5910-9a53-788a2b66a96a",
+      "name": "Note: draft",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api_url }}/internal/v1/leads/{{ $('Verify event').first().json.lead_id }}/follow-up-draft",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}"
+      },
+      "id": "9ffbd879-a02e-54f7-b1ee-1eef98d09ee0",
+      "name": "Create follow-up draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "leadApiToken0001",
+          "name": "Lead API service token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code node \"Plan <step> retry\" (run once for all items), placed after an HTTP Request node\n// that returns the full response and never throws on HTTP errors.\n//\n// Classifies the API's answer and decides what happens next:\n//   ok          2xx: continue with the step the API names in body.next\n//   retry       transient (connection error, 429, 5xx): wait, then call again\n//   exhausted   transient, but the attempts for this run are used up: stop this run with an\n//               error so the event is delivered again later (the dispatcher backs off)\n//   permanent   4xx: stop; an operator must act (nothing is retried automatically)\n//\n// The wait grows exponentially with full jitter and honours Retry-After, capped at 60 s.\nconst STEP = 'follow_up_draft';\nconst MAX_ATTEMPTS = 3;\nconst BASE_WAIT_S = 20;\n\nconst response = $json || {};\nconst status = Number(response.statusCode || 0);\nconst body = response.body && typeof response.body === 'object' ? response.body : {};\nconst attempt = $runIndex + 1;\n\nlet route;\nif (status >= 200 && status < 300) {\n  route = 'ok';\n} else if (status === 0 || status === 429 || status >= 500) {\n  route = attempt < MAX_ATTEMPTS ? 'retry' : 'exhausted';\n} else {\n  route = 'permanent';\n}\n\nlet waitS = 0;\nif (route === 'retry') {\n  const headers = response.headers || {};\n  const retryAfter = Number(headers['retry-after'] || 0);\n  const ceiling = Math.min(60, BASE_WAIT_S * 2 ** (attempt - 1));\n  const jittered = Math.max(1, Math.round(ceiling / 2 + Math.random() * (ceiling / 2)));\n  waitS = Math.min(60, Math.max(jittered, retryAfter));\n}\n\nconst error = body.error || {};\nreturn [\n  {\n    json: {\n      step: STEP,\n      route,\n      attempt,\n      status_code: status,\n      wait_s: waitS,\n      next: route === 'ok' ? String(body.next || 'stop') : 'stop',\n      lead_status: body.status || null,\n      detail: body.detail || {},\n      error: route === 'ok' ? null : String(error.code || (response.error && response.error.message) || `HTTP ${status}`).slice(0, 200),\n    },\n  },\n];\n"
+      },
+      "id": "b631c181-070d-579d-ac5c-43bf3e1074bc",
+      "name": "Plan draft retry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "22ee7e29-b07c-51fd-ad10-c0e6132304fc",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "ok",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ok"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a9d6d799-74c7-5402-a989-5bb9e9bf3407",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "retry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "retry"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "daabc1f7-a214-5f82-9cf1-c6aeb68a12d6",
+      "name": "Draft outcome",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3080,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.wait_s }}",
+        "unit": "seconds"
+      },
+      "id": "7f6b46ea-58f1-5d14-9a23-e7acfa4aecaf",
+      "name": "Wait before draft retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3080,
+        420
+      ],
+      "webhookId": "44da664d-ddcc-5f5e-9497-3c8f24bf28f1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "95ffa573-a9da-555e-85cb-7fe9aa46fe4d",
+              "leftValue": "={{ $json.detail.created }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "40f2bacd-51b5-55d9-98de-fbc5693878db",
+      "name": "New draft?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3300,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.mail_from }}",
+        "toEmail": "={{ $('Settings').first().json.operator_email }}",
+        "subject": "=Follow-up draft ready for review: {{ $json.detail.reference }}",
+        "emailFormat": "text",
+        "text": "=A follow-up draft for lead {{ $json.detail.reference }} is waiting for review.\n\nOpen the dashboard: {{ $('Settings').first().json.dashboard_url }}/leads/{{ $('Verify event').first().json.lead_id }}\n\nNothing has been sent to the lead.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b71235c7-6ae0-5545-9ce2-f372971887dc",
+      "name": "Notify operators",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3520,
+        40
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "leadMailSink0001",
+          "name": "Local mail sink (Mailpit)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## 5. Report\nThe outcome goes back to the API: completed, stopped on purpose (review needed, permanent error) or failed after retries (the event is delivered again later). Unexpected failures go to the error workflow.",
+        "width": 520,
+        "height": 200,
+        "color": 7
+      },
+      "id": "e598dc13-ed8c-5bf2-bb4f-497bcf131a7f",
+      "name": "Note: report",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3740,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code node \"Summarize run\" (run once for all items): what to report for this execution.\n//\n//   success   the pipeline ran to its end (a draft exists, or a delivery was made)\n//   stopped   the run ended on purpose: the lead needs review, or a permanent error needs\n//             an operator; the event is complete and is not delivered again\n//   error     a transient failure outlasted this run's retries; the API schedules another\n//             delivery of the event with backoff\nconst STAGES = [\"Plan draft retry\", \"Plan CRM retry\", \"Plan qualification retry\"]; // plan nodes, latest stage first\nconst VERIFY_NODE = 'Verify event';\n\nconst verified = $(VERIFY_NODE).first().json;\nlet last = null;\nfor (const name of STAGES) {\n  if ($(name).isExecuted) {\n    last = $(name).last().json;\n    break;\n  }\n}\n\nlet status;\nlet step;\nlet error = null;\nif (last === null) {\n  status = 'stopped';\n  step = 'next_step';\n} else {\n  step = last.step;\n  if (last.route === 'ok') {\n    status = last.next === 'done' ? 'success' : 'stopped';\n  } else if (last.route === 'permanent') {\n    status = 'stopped';\n    error = last.error;\n  } else {\n    status = 'error';\n    error = last.error;\n  }\n}\n\nreturn [\n  {\n    json: {\n      event_id: verified.event_id,\n      report: {\n        execution_id: String($execution.id),\n        status,\n        step,\n        duration_ms: Math.max(0, Date.now() - Number(verified.started_at || Date.now())),\n        error,\n      },\n    },\n  },\n];\n"
+      },
+      "id": "6b8d39e6-3a8d-52aa-815d-a0f04db88c62",
+      "name": "Summarize run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3760,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api_url }}/internal/v1/events/{{ $json.event_id }}/outcome",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.report) }}"
+      },
+      "id": "91f4828b-b7b5-5932-a54d-109ef43c092c",
+      "name": "Report outcome",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3980,
+        520
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "leadApiToken0001",
+          "name": "Lead API service token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Lead event webhook": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Verify event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify event": {
+      "main": [
+        [
+          {
+            "node": "Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid?": {
+      "main": [
+        [
+          {
+            "node": "Accept",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept": {
+      "main": [
+        [
+          {
+            "node": "Link execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link execution": {
+      "main": [
+        [
+          {
+            "node": "Next step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next step": {
+      "main": [
+        [
+          {
+            "node": "Route next step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route next step": {
+      "main": [
+        [
+          {
+            "node": "Qualify lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sync CRM contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create follow-up draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summarize run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qualify lead": {
+      "main": [
+        [
+          {
+            "node": "Plan qualification retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan qualification retry": {
+      "main": [
+        [
+          {
+            "node": "Qualification outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qualification outcome": {
+      "main": [
+        [
+          {
+            "node": "After qualification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait before qualification retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summarize run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait before qualification retry": {
+      "main": [
+        [
+          {
+            "node": "Qualify lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "After qualification": {
+      "main": [
+        [
+          {
+            "node": "Sync CRM contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create follow-up draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summarize run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync CRM contact": {
+      "main": [
+        [
+          {
+            "node": "Plan CRM retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan CRM retry": {
+      "main": [
+        [
+          {
+            "node": "CRM outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRM outcome": {
+      "main": [
+        [
+          {
+            "node": "After CRM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait before CRM retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summarize run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait before CRM retry": {
+      "main": [
+        [
+          {
+            "node": "Sync CRM contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "After CRM": {
+      "main": [
+        [
+          {
+            "node": "Create follow-up draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summarize run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create follow-up draft": {
+      "main": [
+        [
+          {
+            "node": "Plan draft retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan draft retry": {
+      "main": [
+        [
+          {
+            "node": "Draft outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft outcome": {
+      "main": [
+        [
+          {
+            "node": "New draft?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait before draft retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summarize run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait before draft retry": {
+      "main": [
+        [
+          {
+            "node": "Create follow-up draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New draft?": {
+      "main": [
+        [
+          {
+            "node": "Notify operators",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summarize run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify operators": {
+      "main": [
+        [
+          {
+            "node": "Summarize run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize run": {
+      "main": [
+        [
+          {
+            "node": "Report outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 1800,
+    "errorWorkflow": "leadErrorHandl01",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}

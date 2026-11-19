@@ -1,0 +1,30 @@
+# Secrets and local configuration: never committed.
+secrets/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/test-results/
+
+# Generated run output (results worth keeping are copied into docs/ or assets/)
+evals/out/
+e2e/out/
+loadtest/out/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

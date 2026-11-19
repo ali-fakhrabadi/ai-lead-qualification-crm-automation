@@ -1,0 +1,398 @@
+# AI lead qualification & CRM automation - Docker Compose stack.
+#
+#   scripts/init-secrets.sh          # once: generate ./secrets (Docker secrets, never in Git)
+#   cp .env.example .env             # set the model host and ports
+#   docker compose up -d --build     # migrate, set up n8n, start everything
+#   scripts/create-demo-users.sh     # operator accounts for the dashboard
+#
+# Flow: web form / signed webhook -> api (lead + outbox event in one transaction)
+#   -> dispatcher (signed delivery) -> n8n (qualify -> CRM upsert -> follow-up draft, retries)
+#   -> api internal endpoints -> model (Ollama or OpenAI), demo CRM (or HubSpot), Mailpit.
+#
+# Networks:
+#   backend  internal only, no internet: PostgreSQL, API, dispatcher, n8n, runners, demo CRM,
+#            Mailpit. The internal API routes are reachable only here (nginx does not proxy them).
+#   edge     published ports and outbound traffic (model host, external CRM).
+#
+# Database roles (deploy/postgres/initdb, on first start):
+#   postgres superuser (admin only), lead_owner (migrations), lead_app (API, dispatcher),
+#   n8n (own database), crm_demo (the demo CRM's own database).
+
+name: lead-automation
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Every long-running service: read-only root filesystem, no capabilities, no privilege
+# escalation, bounded logs.
+x-hardened: &hardened
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+  logging: *default-logging
+
+x-app-env: &app-env
+  LEAD_ENVIRONMENT: ${LEAD_ENVIRONMENT:-production}
+  LEAD_LOG_LEVEL: ${LEAD_LOG_LEVEL:-INFO}
+  LEAD_DB_HOST: postgres
+  LEAD_DB_NAME: leads
+  LEAD_DB_USER: lead_app
+  LEAD_DB_PASSWORD_FILE: /run/secrets/db_app_password
+  LEAD_JWT_SECRET_FILE: /run/secrets/jwt_secret
+  LEAD_INTERNAL_TOKEN_FILE: /run/secrets/internal_token
+  LEAD_DISPATCH_SECRET_FILE: /run/secrets/dispatch_secret
+  LEAD_WEBHOOK_SECRETS_FILE: /run/secrets/webhook_secrets
+  LEAD_TRUST_PROXY_HEADERS: "true"
+  LEAD_LLM_PROVIDER: ${LEAD_LLM_PROVIDER:-ollama}
+  LEAD_LLM_MODEL: ${LEAD_LLM_MODEL:-llama3.1:8b}
+  LEAD_LLM_NUM_THREAD: ${LEAD_LLM_NUM_THREAD:-}
+  LEAD_LLM_TIMEOUT_S: ${LEAD_LLM_TIMEOUT_S:-300}
+  LEAD_LLM_DRAFT_FOLLOWUPS: ${LEAD_LLM_DRAFT_FOLLOWUPS:-true}
+  LEAD_OLLAMA_BASE_URL: ${LEAD_OLLAMA_BASE_URL:-http://ollama:11434}
+  LEAD_OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+  LEAD_CRM_PROVIDER: ${LEAD_CRM_PROVIDER:-demo}
+  LEAD_CRM_BASE_URL: ${LEAD_CRM_BASE_URL:-http://crm-demo:8100}
+  LEAD_CRM_TOKEN_FILE: /run/secrets/crm_token
+  LEAD_N8N_BASE_URL: http://n8n:5678
+  LEAD_DELIVERY_MODE: sink
+  LEAD_SMTP_HOST: mailpit
+  LEAD_SMTP_PORT: "1025"
+  LEAD_FAULT_INJECTION_ENABLED: ${LEAD_FAULT_INJECTION_ENABLED:-false}
+  LEAD_FAULT_ADMIN_TOKEN_FILE: /run/secrets/fault_admin_token
+
+x-app-secrets: &app-secrets
+  - db_app_password
+  - jwt_secret
+  - internal_token
+  - dispatch_secret
+  - webhook_secrets
+  - openai_api_key
+  - crm_token
+  - fault_admin_token
+
+x-n8n-db: &n8n-db
+  DB_TYPE: postgresdb
+  DB_POSTGRESDB_HOST: postgres
+  DB_POSTGRESDB_DATABASE: n8n
+  DB_POSTGRESDB_USER: n8n
+  DB_POSTGRESDB_PASSWORD_FILE: /run/secrets/n8n_db_password
+
+services:
+  postgres:
+    <<: *hardened
+    image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+    user: postgres
+    environment:
+      POSTGRES_DB: leads
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_superuser_password
+      # scram-sha-256 for every TCP connection; the Unix socket stays trust for administration.
+      POSTGRES_INITDB_ARGS: --data-checksums --auth-host=scram-sha-256 --auth-local=trust
+    command: [postgres, -c, max_connections=100, -c, shared_buffers=128MB, -c, log_min_duration_statement=500]
+    secrets: [postgres_superuser_password, db_owner_password, db_app_password, n8n_db_password, crm_db_password]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deploy/postgres/initdb:/docker-entrypoint-initdb.d:ro
+    tmpfs: [/var/run/postgresql, /tmp]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --host=127.0.0.1 --username=postgres --dbname=leads"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 512M}
+
+  # One-shot: apply database migrations as the schema owner, then exit.
+  migrate:
+    <<: *hardened
+    image: ${LEAD_API_IMAGE:-lead-automation-api:local}
+    build:
+      context: ./backend
+      target: runtime
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+    restart: "no"
+    command: [alembic, upgrade, head]
+    environment:
+      LEAD_DB_HOST: postgres
+      LEAD_DB_NAME: leads
+      LEAD_DB_ADMIN_USER: lead_owner
+      LEAD_DB_ADMIN_PASSWORD_FILE: /run/secrets/db_owner_password
+    secrets: [db_owner_password]
+    tmpfs: [/tmp]
+    networks: [backend]
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  api:
+    <<: *hardened
+    image: ${LEAD_API_IMAGE:-lead-automation-api:local}
+    environment:
+      <<: *app-env
+    secrets: *app-secrets
+    tmpfs: [/tmp]
+    networks: [backend, edge]
+    # A model server on the host (Ollama) is reachable as host.docker.internal.
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 512M}
+
+  dispatcher:
+    <<: *hardened
+    image: ${LEAD_API_IMAGE:-lead-automation-api:local}
+    command: [python, -m, app.dispatcher.main]
+    environment:
+      <<: *app-env
+    secrets: *app-secrets
+    tmpfs: [/tmp]
+    networks: [backend]
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 256M}
+
+  # Stand-in for an external CRM (HubSpot-shaped API subset) with its own database and token.
+  crm-demo:
+    <<: *hardened
+    image: ${LEAD_API_IMAGE:-lead-automation-api:local}
+    command: [uvicorn, crm_demo.app:app, --host, 0.0.0.0, --port, "8100", --no-server-header]
+    environment:
+      CRM_DEMO_DB_HOST: postgres
+      CRM_DEMO_DB_PASSWORD_FILE: /run/secrets/crm_db_password
+      CRM_DEMO_TOKEN_FILE: /run/secrets/crm_token
+      CRM_DEMO_ADMIN_TOKEN_FILE: /run/secrets/crm_admin_token
+      # Fault injection is for tests and the evaluation only (compose.eval.yaml).
+      CRM_DEMO_FAULTS_ENABLED: ${CRM_DEMO_FAULTS_ENABLED:-false}
+    secrets: [crm_db_password, crm_token, crm_admin_token]
+    tmpfs: [/tmp]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      postgres: {condition: service_healthy}
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 256M}
+
+  # Local email sink: captures every follow-up and notification; delivers nothing.
+  mailpit:
+    <<: *hardened
+    image: axllent/mailpit:v1.29.6@sha256:0b5c5f7ffd3c93474baa7fd3869c1462e5a3d03256ed0933dfc0e7d81d794036
+    environment:
+      MP_MAX_MESSAGES: "5000"
+      MP_SMTP_AUTH_ACCEPT_ANY: "false"
+    tmpfs: [/tmp, /data]
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    networks: [backend, edge]
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 128M}
+
+  # One-shot: import credentials (from secrets) and workflows into n8n, publish them.
+  n8n-setup:
+    <<: *hardened
+    image: ${N8N_IMAGE:-n8nio/n8n:2.45.6@sha256:45edf89655fd66dd55ea9336c1791ad14777599fdbf6c5aec6db583ede99a40b}
+    restart: "no"
+    entrypoint: [node, /opt/lead/setup.mjs]
+    environment:
+      <<: *n8n-db
+      N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
+      N8N_LOG_LEVEL: warn
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      LEAD_API_URL: http://api:8000
+      LEAD_SMTP_HOST: mailpit
+      LEAD_SMTP_PORT: "1025"
+      LEAD_DASHBOARD_URL: ${LEAD_DASHBOARD_URL:-http://localhost:8080}
+      LEAD_OPERATOR_EMAIL: ${LEAD_OPERATOR_EMAIL:-operators@northwind-automation.example}
+    secrets: [n8n_db_password, n8n_encryption_key, dispatch_secret, internal_token, n8n_owner_password]
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./n8n/workflows:/opt/lead/workflows:ro
+      - ./n8n/setup/setup.mjs:/opt/lead/setup.mjs:ro
+    tmpfs:
+      - /tmp
+      - /home/node/.cache:uid=1000,gid=1000,mode=0700
+    networks: [backend]
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres: {condition: service_healthy}
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 512M}
+
+  n8n:
+    <<: *hardened
+    image: ${N8N_IMAGE:-n8nio/n8n:2.45.6@sha256:45edf89655fd66dd55ea9336c1791ad14777599fdbf6c5aec6db583ede99a40b}
+    environment:
+      <<: *n8n-db
+      N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
+      # The owner account comes from here, never from a setup page anyone could claim.
+      N8N_INSTANCE_OWNER_MANAGED_BY_ENV: "true"
+      N8N_INSTANCE_OWNER_EMAIL: ${N8N_OWNER_EMAIL:-owner@example.com}
+      N8N_INSTANCE_OWNER_PASSWORD_HASH_FILE: /home/node/.n8n/lead-owner-password.bcrypt
+      # Code nodes run in the separate n8n-runners container.
+      N8N_RUNNERS_MODE: external
+      N8N_RUNNERS_BROKER_LISTEN_ADDRESS: 0.0.0.0
+      N8N_RUNNERS_AUTH_TOKEN_FILE: /run/secrets/n8n_runners_auth_token
+      # SSRF protection: workflows may reach only these private hosts (the API, the mail
+      # sink), never PostgreSQL or the host.
+      N8N_SSRF_PROTECTION_ENABLED: "true"
+      N8N_SSRF_ALLOWED_HOSTNAMES: api,mailpit
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_WEBHOOK_URL: http://n8n:5678/
+      N8N_SECURE_COOKIE: "false"
+      GENERIC_TIMEZONE: ${TZ:-UTC}
+      TZ: ${TZ:-UTC}
+      N8N_LOG_LEVEL: info
+      N8N_LOG_FORMAT: json
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_DISABLED_MODULES: mcp-registry
+      N8N_COMMUNITY_PACKAGES_ENABLED: "false"
+      N8N_UNVERIFIED_PACKAGES_ENABLED: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      N8N_RUNNERS_TASK_TIMEOUT: "60"
+      # The stricter limits n8n announces as future defaults, adopted now.
+      N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES: "268435456"
+      N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES: "1000"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "336"
+      EXECUTIONS_TIMEOUT_MAX: "3600"
+    secrets: [n8n_db_password, n8n_encryption_key, n8n_runners_auth_token]
+    volumes:
+      - n8n-data:/home/node/.n8n
+    tmpfs:
+      - /tmp
+      - /home/node/.cache:uid=1000,gid=1000,mode=0700
+    # The editor is published on loopback only (SSH tunnel to use it); webhooks are internal.
+    ports:
+      - "127.0.0.1:${N8N_HTTP_PORT:-5679}:5678"
+    networks: [backend, edge]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5678/healthz/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    depends_on:
+      postgres: {condition: service_healthy}
+      n8n-setup: {condition: service_completed_successfully}
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 1G}
+
+  # Runs the Code nodes apart from n8n: no database password, no encryption key, no
+  # credentials, backend network only. Allows the `crypto` built-in and nothing else.
+  n8n-runners:
+    <<: *hardened
+    image: ${N8N_RUNNERS_IMAGE:-n8nio/runners:2.45.6@sha256:7b11feb37131eebe8e90585ab562f6a90ed2a6acb956e1e6537fe3885d7957e4}
+    command: [javascript]
+    environment:
+      N8N_RUNNERS_TASK_BROKER_URI: http://n8n:5679
+      N8N_RUNNERS_AUTH_TOKEN_FILE: /run/secrets/n8n_runners_auth_token
+      N8N_RUNNERS_TASK_TIMEOUT: "60"
+      GENERIC_TIMEZONE: ${TZ:-UTC}
+    secrets: [n8n_runners_auth_token]
+    volumes:
+      - ./n8n/setup/task-runners.json:/etc/n8n-task-runners.json:ro
+    tmpfs:
+      - /tmp
+      - /home/runner:uid=1000,gid=1000,mode=0700
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5680/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    depends_on:
+      n8n: {condition: service_healthy}
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 512M}
+
+  # Public entry point: the web app and /api/ (never /internal/).
+  web:
+    <<: *hardened
+    image: ${LEAD_WEB_IMAGE:-lead-automation-web:local}
+    build:
+      context: ./frontend
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx:uid=101,gid=101
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:8080"
+    networks: [backend, edge]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      api: {condition: service_started}
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 128M}
+
+  # Optional local model server: `docker compose --profile ollama up -d`, then
+  # `docker compose exec ollama ollama pull llama3.1:8b` (not downloaded automatically).
+  ollama:
+    profiles: [ollama]
+    image: ollama/ollama:0.12.9
+    volumes: [ollama-data:/root/.ollama]
+    networks: [backend]
+    restart: unless-stopped
+    logging: *default-logging
+
+volumes:
+  postgres-data:
+  n8n-data:
+  ollama-data:
+
+networks:
+  backend:
+    internal: true
+  edge:
+
+secrets:
+  postgres_superuser_password: {file: ./secrets/postgres_superuser_password}
+  db_owner_password: {file: ./secrets/db_owner_password}
+  db_app_password: {file: ./secrets/db_app_password}
+  n8n_db_password: {file: ./secrets/n8n_db_password}
+  crm_db_password: {file: ./secrets/crm_db_password}
+  jwt_secret: {file: ./secrets/jwt_secret}
+  internal_token: {file: ./secrets/internal_token}
+  dispatch_secret: {file: ./secrets/dispatch_secret}
+  webhook_secrets: {file: ./secrets/webhook_secrets}
+  n8n_encryption_key: {file: ./secrets/n8n_encryption_key}
+  n8n_owner_password: {file: ./secrets/n8n_owner_password}
+  n8n_runners_auth_token: {file: ./secrets/n8n_runners_auth_token}
+  crm_token: {file: ./secrets/crm_token}
+  crm_admin_token: {file: ./secrets/crm_admin_token}
+  fault_admin_token: {file: ./secrets/fault_admin_token}
+  openai_api_key: {file: ./secrets/openai_api_key}

@@ -1,0 +1,163 @@
+{
+  "id": "leadErrorHandl01",
+  "name": "Error handler: record and schedule retry",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Error handling and replay\nAny unexpected failure of the two workflows lands here. The API maps the execution to its event, marks the lead `retry_pending` at the stage it reached and schedules the event again with backoff (dead after the maximum attempts). Operators can also replay from the dashboard.",
+        "width": 900,
+        "height": 200,
+        "color": 7
+      },
+      "id": "932b7a6d-179a-5d02-b15e-03474bdffc2d",
+      "name": "Note: errors",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -220
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "276fe6ec-9665-52c2-91a6-e61704085341",
+      "name": "Workflow failed",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "995e6cfc-9e77-56dd-884a-b90b9b89c12d",
+              "name": "api_url",
+              "value": "http://api:8000",
+              "type": "string"
+            },
+            {
+              "id": "34960fe8-3e64-5d1f-94f2-941fbdb41125",
+              "name": "operator_email",
+              "value": "operators@northwind-automation.example",
+              "type": "string"
+            },
+            {
+              "id": "0dc3058d-d6e0-5aa7-84a6-a3d9264d6a22",
+              "name": "mail_from",
+              "value": "lead-automation@northwind-automation.example",
+              "type": "string"
+            },
+            {
+              "id": "9065f4b5-c4ff-5916-a00e-d8092740415e",
+              "name": "dashboard_url",
+              "value": "http://localhost:8080",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f0d90b55-e8f9-57f0-8d6b-db0d9ba5839f",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code node \"Error details\" in the error workflow (run once for all items).\n//\n// The Error Trigger hands over the failed execution's metadata. Only identifiers and a short\n// message are forwarded: no lead data, no request bodies.\nconst input = $json || {};\nconst execution = input.execution || {};\nconst workflow = input.workflow || {};\nconst message = String((execution.error && execution.error.message) || 'workflow error')\n  .replace(/\\s+/g, ' ')\n  .slice(0, 300);\nreturn [\n  {\n    json: {\n      execution_id: execution.id !== undefined ? String(execution.id) : null,\n      workflow: String(workflow.name || '').slice(0, 120) || null,\n      node: String(execution.lastNodeExecuted || '').slice(0, 120) || null,\n      message,\n    },\n  },\n];\n"
+      },
+      "id": "6ac72f75-2fca-5a62-9a6c-94b08d91f59a",
+      "name": "Error details",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.api_url }}/internal/v1/workflow-errors",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Error details').first().json) }}"
+      },
+      "id": "39ea75f3-71b6-581c-abbf-a1adaef8904e",
+      "name": "Report workflow error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "leadApiToken0001",
+          "name": "Lead API service token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Workflow failed": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error details": {
+      "main": [
+        [
+          {
+            "node": "Report workflow error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 1800,
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}
