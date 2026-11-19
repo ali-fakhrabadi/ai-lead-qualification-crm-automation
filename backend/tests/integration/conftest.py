@@ -49,6 +49,8 @@ os.environ.setdefault("CRM_DEMO_DB_NAME", os.environ.get("LEAD_DB_NAME", "leads_
 os.environ.setdefault("CRM_DEMO_DB_USER", os.environ.get("LEAD_DB_ADMIN_USER", "lead_owner"))
 if os.environ.get("LEAD_DB_ADMIN_PASSWORD_FILE"):
     os.environ.setdefault("CRM_DEMO_DB_PASSWORD_FILE", os.environ["LEAD_DB_ADMIN_PASSWORD_FILE"])
+elif os.environ.get("LEAD_DB_ADMIN_PASSWORD"):  # CI passes the throwaway password directly
+    os.environ.setdefault("CRM_DEMO_DB_PASSWORD", os.environ["LEAD_DB_ADMIN_PASSWORD"])
 os.environ.setdefault("CRM_DEMO_TOKEN", os.environ.get("LEAD_CRM_TOKEN", "crm-token-for-tests"))
 os.environ.setdefault("CRM_DEMO_ADMIN_TOKEN", "crm-admin-token-for-tests")
 os.environ.setdefault("CRM_DEMO_FAULTS_ENABLED", "true")
