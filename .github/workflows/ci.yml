@@ -83,6 +83,9 @@ jobs:
       - name: Dependency vulnerability audit
         working-directory: backend
         run: pip-audit --strict --disable-pip --require-hashes -r requirements.txt
+      - name: Benchmark metric definitions (unit tests)
+        working-directory: evals
+        run: python -m pytest -q -p no:cacheprovider test_metrics.py
       - name: Evaluation dataset is the generated one and well formed
         run: |
           python evals/build_dataset.py --check

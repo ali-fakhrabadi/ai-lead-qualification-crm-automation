@@ -29,7 +29,8 @@ def d(x: dict[str, Any] | None, unit: str = "s") -> str:
 
 
 def main() -> int:
-    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     res = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
     out: list[str] = []
     w = out.append
