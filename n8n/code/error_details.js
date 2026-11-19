@@ -1,8 +1,11 @@
 // Code node "Error details" in the error workflow (run once for all items).
 //
 // The Error Trigger hands over the failed execution's metadata. Only identifiers and a short
-// message are forwarded: no lead data, no request bodies.
-const input = $json || {};
+// message are forwarded: no lead data, no request bodies. Read from the trigger by name: the
+// node right before this one is Settings, so $json would be the settings, not the error
+// (that mistake sent reports without an execution id; caught by the workflow harness).
+const TRIGGER_NODE = 'Workflow failed';
+const input = $(TRIGGER_NODE).first().json || {};
 const execution = input.execution || {};
 const workflow = input.workflow || {};
 const message = String((execution.error && execution.error.message) || 'workflow error')

@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { newSubmissionId } from "../ids";
 import {
   apiError,
   json,
@@ -122,6 +123,21 @@ describe("public lead form", () => {
     const honeypot = container.querySelector(".hp");
     expect(honeypot).toHaveAttribute("aria-hidden", "true");
     expect(within(honeypot as HTMLElement).getByRole("textbox", { hidden: true })).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("works over plain HTTP, where crypto.randomUUID does not exist", async () => {
+    // Found by the end-to-end run: browsers expose randomUUID only in secure contexts.
+    vi.stubGlobal("crypto", { getRandomValues: globalThis.crypto.getRandomValues.bind(globalThis.crypto) });
+    try {
+      const id = newSubmissionId();
+      expect(id).toMatch(/^[0-9a-f]{32}$/);
+      expect(newSubmissionId()).not.toBe(id);
+      mockApi({ "GET /api/v1/public/form-config": config });
+      renderAt("/demo-form");
+      expect(await screen.findByRole("option", { name: "CRM integration" })).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

@@ -22,9 +22,11 @@ frontend/test-results/
 evals/out/
 e2e/out/
 loadtest/out/
+n8n/tests/harness/out/
 
 # Editors and OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+backups/

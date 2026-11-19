@@ -170,8 +170,9 @@ def event_started(event_id: uuid.UUID, body: ExecutionStarted, db: Db) -> dict[s
 
 
 @router.post("/workflow-errors")
-def workflow_error(body: WorkflowError, db: Db, settings: Settings = Depends(get_settings)
-                   ) -> dict[str, str]:
+def workflow_error(
+    body: WorkflowError, db: Db, settings: Settings = Depends(get_settings)
+) -> dict[str, str]:
     """Called by the n8n error workflow when an execution fails outside the normal paths.
 
     The failed execution's event is scheduled for another delivery (with backoff) and its lead
@@ -179,8 +180,11 @@ def workflow_error(body: WorkflowError, db: Db, settings: Settings = Depends(get
     """
     event = None
     if body.execution_id:
-        event = db.scalar(select(OutboxEvent).where(
-            OutboxEvent.workflow_execution_id == body.execution_id).with_for_update())
+        event = db.scalar(
+            select(OutboxEvent)
+            .where(OutboxEvent.workflow_execution_id == body.execution_id)
+            .with_for_update()
+        )
     if event is not None and event.status in (OutboxStatus.DISPATCHED, OutboxStatus.PENDING):
         now = datetime.now(UTC)
         event.workflow_status = "error"
@@ -189,8 +193,9 @@ def workflow_error(body: WorkflowError, db: Db, settings: Settings = Depends(get
             event.status = OutboxStatus.DEAD
         else:
             event.status = OutboxStatus.FAILED
-            event.next_attempt_at = now + max(backoff(settings, event.attempts),
-                                              timedelta(seconds=30))
+            event.next_attempt_at = now + max(
+                backoff(settings, event.attempts), timedelta(seconds=30)
+            )
     lead_id = body.lead_id or (event.lead_id if event is not None else None)
     lead = db.get(Lead, lead_id, with_for_update=True) if lead_id else None
     if lead is not None and lifecycle.can_transition(lead.status, lead.status.RETRY_PENDING):

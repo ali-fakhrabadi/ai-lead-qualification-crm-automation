@@ -601,6 +601,10 @@ label {
   gap: 0.6rem;
 }
 
+.draft > label {
+  margin-bottom: -0.35rem;
+}
+
 .actions {
   display: flex;
   gap: 0.5rem;

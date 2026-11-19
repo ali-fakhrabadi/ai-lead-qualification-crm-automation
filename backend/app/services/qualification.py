@@ -183,6 +183,8 @@ def qualify(
     output: QualificationOutput | None = None
     error: str | None = None
     status = AssessmentStatus.VALID
+    repaired = False
+    injected = [fault] if fault else []
     try:
         result = _call(provider, messages, fault)
         raw = result.content
@@ -197,6 +199,8 @@ def qualify(
             ]
             fault = _take_fault(db, settings, lead)
             db.commit()
+            repaired = True
+            injected += [fault] if fault else []
             result = _call(provider, repair, fault)
             raw = result.content
             output = parse_output(QualificationOutput, raw)
@@ -236,7 +240,12 @@ def qualify(
             outcome="failure",
             lead_id=lead.id,
             correlation_id=correlation_id,
-            details={"provider": provider.name, "transient": transient},
+            details={
+                "provider": provider.name,
+                "transient": transient,
+                "latency_ms": latency,
+                "injected_faults": injected,
+            },
         )
         db.commit()
         if transient:
@@ -253,7 +262,13 @@ def qualify(
         rules = invalid_output_result()
     else:
         assessment.parsed = output.model_dump(mode="json")
-        rules = apply_rules(rubric, output, lead.message, injection_detected=injection)
+        rules = apply_rules(
+            rubric,
+            output,
+            lead.message,
+            injection_detected=injection,
+            provided=frozenset({"company"} if lead.company else set()),
+        )
     for review in _open_reviews(db, lead.id):
         reason = (
             "possible_duplicate_open"
@@ -308,6 +323,12 @@ def qualify(
             "status": status.value,
             "reasons": rules.reasons,
             "latency_ms": latency,
+            # Measurement fields: whether a repair call was needed, which failures were injected
+            # by the test hooks (never in production) and the token counts the provider reported.
+            "repair_attempted": repaired,
+            "injected_faults": injected,
+            "prompt_tokens": assessment.prompt_tokens,
+            "completion_tokens": assessment.completion_tokens,
         },
     )
     db.flush()

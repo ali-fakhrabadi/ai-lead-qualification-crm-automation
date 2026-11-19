@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, ApiError, type FormConfig, type IntakeResult, type LeadForm } from "../api";
 import { Logo } from "../components/Shell";
+import { newSubmissionId } from "../ids";
 
 const EMPTY: LeadForm = {
   first_name: "",
@@ -17,9 +18,6 @@ const EMPTY: LeadForm = {
   nickname: "",
 };
 
-function newSubmissionId(): string {
-  return crypto.randomUUID().replaceAll("-", "");
-}
 
 const LABELS: Record<string, string> = {
   first_name: "First name",

@@ -78,10 +78,13 @@ def clean_db(admin_engine: Engine) -> Iterator[Engine]:
     with admin_engine.begin() as conn:
         conn.execute(text(f"TRUNCATE {APP_TABLES} RESTART IDENTITY CASCADE"))
         conn.execute(text("ALTER SEQUENCE lead_reference_seq RESTART WITH 1001"))
-        conn.execute(text(
-            "DO $$ BEGIN IF to_regclass('contacts') IS NOT NULL THEN "
-            "TRUNCATE contact_company, notes, contacts, companies, faults, requests "
-            "RESTART IDENTITY CASCADE; END IF; END $$"))
+        conn.execute(
+            text(
+                "DO $$ BEGIN IF to_regclass('contacts') IS NOT NULL THEN "
+                "TRUNCATE contact_company, notes, contacts, companies, faults, requests "
+                "RESTART IDENTITY CASCADE; END IF; END $$"
+            )
+        )
     yield admin_engine
 
 
@@ -94,11 +97,12 @@ def api(clean_db: Engine) -> Iterator[TestClient]:
 
 
 @pytest.fixture
-def crm_transport(clean_db: Engine, monkeypatch: pytest.MonkeyPatch) -> Iterator[httpx.BaseTransport]:
+def crm_transport(
+    clean_db: Engine, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[httpx.BaseTransport]:
     """Route the CRM adapter to the in-process demo CRM over its HTTP interface."""
-    from crm_demo.app import app as crm_app
-
     from app.services import crm_sync
+    from crm_demo.app import app as crm_app
 
     crm_client = TestClient(crm_app)
     transport = crm_client._transport  # the HTTP transport into the ASGI app
@@ -114,8 +118,11 @@ def crm_transport(clean_db: Engine, monkeypatch: pytest.MonkeyPatch) -> Iterator
 
 @pytest.fixture
 def crm_admin(crm_transport: httpx.BaseTransport) -> httpx.Client:
-    return httpx.Client(base_url="http://crm", transport=crm_transport,
-                        headers={"X-Admin-Token": "crm-admin-token-for-tests"})
+    return httpx.Client(
+        base_url="http://crm",
+        transport=crm_transport,
+        headers={"X-Admin-Token": "crm-admin-token-for-tests"},
+    )
 
 
 @pytest.fixture

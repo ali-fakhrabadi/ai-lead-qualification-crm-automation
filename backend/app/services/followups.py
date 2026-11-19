@@ -19,6 +19,8 @@ from app.core.errors import AppError, Conflict, NotFound, ServiceUnavailable
 from app.db.models import (
     Assessment,
     DraftStatus,
+    DuplicateReview,
+    DuplicateStatus,
     FollowUpDraft,
     Lead,
     LeadStatus,
@@ -208,6 +210,21 @@ def approve(
     draft, lead = _get(db, draft_id)
     if draft.status is not DraftStatus.DRAFT:
         raise Conflict(f"The draft is already {draft.status.value}")
+    open_review = db.scalar(
+        select(DuplicateReview.id)
+        .where(
+            DuplicateReview.status == DuplicateStatus.OPEN,
+            (DuplicateReview.lead_id == lead.id) | (DuplicateReview.candidate_lead_id == lead.id),
+        )
+        .limit(1)
+    )
+    if open_review is not None:
+        # The same person may have written again with different details, or two records may
+        # be one person: a reply now could answer the wrong inquiry or reach someone twice.
+        raise Conflict(
+            "Resolve the open duplicate review for this lead before approving its follow-up",
+            code="duplicate_review_open",
+        )
     draft.status = DraftStatus.APPROVED
     draft.decided_by, draft.decided_at, draft.decision_note = user_id, datetime.now(UTC), note
     lifecycle.transition(lead, S.FOLLOW_UP_APPROVED)

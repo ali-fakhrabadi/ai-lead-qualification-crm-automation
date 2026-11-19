@@ -50,6 +50,7 @@ x-app-env: &app-env
   LEAD_LLM_PROVIDER: ${LEAD_LLM_PROVIDER:-ollama}
   LEAD_LLM_MODEL: ${LEAD_LLM_MODEL:-llama3.1:8b}
   LEAD_LLM_NUM_THREAD: ${LEAD_LLM_NUM_THREAD:-}
+  LEAD_LLM_NUM_CTX: ${LEAD_LLM_NUM_CTX:-4096}
   LEAD_LLM_TIMEOUT_S: ${LEAD_LLM_TIMEOUT_S:-300}
   LEAD_LLM_DRAFT_FOLLOWUPS: ${LEAD_LLM_DRAFT_FOLLOWUPS:-true}
   LEAD_OLLAMA_BASE_URL: ${LEAD_OLLAMA_BASE_URL:-http://ollama:11434}
@@ -157,7 +158,12 @@ services:
     tmpfs: [/tmp]
     networks: [backend]
     healthcheck:
-      disable: true
+      # Healthy while the loop keeps completing rounds against the database.
+      test: ["CMD", "python", "-c", "import os, sys, time; sys.exit(time.time() - os.path.getmtime('/tmp/dispatcher-heartbeat') > 60)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     depends_on:
       migrate: {condition: service_completed_successfully}
     deploy:
@@ -363,7 +369,7 @@ services:
   # `docker compose exec ollama ollama pull llama3.1:8b` (not downloaded automatically).
   ollama:
     profiles: [ollama]
-    image: ollama/ollama:0.12.9
+    image: ollama/ollama:0.12.9@sha256:889ae74bdb4aa541044574d3e5e5dedde3c682c8b7918b6792aa031e7dfc8f06
     volumes: [ollama-data:/root/.ollama]
     networks: [backend]
     restart: unless-stopped

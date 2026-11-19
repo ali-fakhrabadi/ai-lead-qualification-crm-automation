@@ -344,14 +344,23 @@ function DraftView({
         Version {draft.version} · {draft.generated_by === "llm" ? `written by ${draft.model}` : "template"} · <Badge value={draft.status} />
         {draft.delivered_at && ` · delivered to the ${draft.delivery_channel} at ${formatDate(draft.delivered_at)}`}
       </p>
-      <label>
-        Subject
-        <input value={subject} readOnly={!editable} onChange={(e) => setSubject(e.target.value)} />
-      </label>
-      <label>
-        Message
-        <textarea rows={9} value={body} readOnly={!editable} onChange={(e) => setBody(e.target.value)} />
-      </label>
+      {/* Labels point at their fields (not wrapping them), so the accessible name is just
+          "Subject" / "Message" and not the field's own text. */}
+      <label htmlFor={`draft-subject-${draft.id}`}>Subject</label>
+      <input
+        id={`draft-subject-${draft.id}`}
+        value={subject}
+        readOnly={!editable}
+        onChange={(e) => setSubject(e.target.value)}
+      />
+      <label htmlFor={`draft-body-${draft.id}`}>Message</label>
+      <textarea
+        id={`draft-body-${draft.id}`}
+        rows={9}
+        value={body}
+        readOnly={!editable}
+        onChange={(e) => setBody(e.target.value)}
+      />
       {draft.decision_note && <p className="sub">Note: {draft.decision_note}</p>}
       {editable && (
         <div className="actions">

@@ -1,5 +1,5 @@
-// One-shot n8n setup: import the credentials and the three workflows, then publish the two
-// webhook workflows. Runs in the n8n image before n8n starts (the "n8n-setup" service).
+// One-shot n8n setup: import the credentials and the three workflows, then publish all three.
+// Runs in the n8n image before n8n starts (the "n8n-setup" service).
 //
 // Credentials are built from Docker secrets and environment variables, written to a file on
 // tmpfs only for the n8n CLI to read, and deleted afterwards; n8n stores them encrypted with
@@ -18,7 +18,9 @@ const bcrypt = createRequire('/usr/local/lib/node_modules/n8n/package.json')('bc
 const OWNER_HASH_FILE = '/home/node/.n8n/lead-owner-password.bcrypt';
 const WORKFLOW_DIR = process.env.LEAD_WORKFLOW_DIR || '/opt/lead/workflows';
 const STATE_FILE = '/home/node/.n8n/lead-setup.sha256';
-const PUBLISH = ['leadPipeline0001', 'leadFollowDeliv1'];
+// The error handler must be published too: n8n 2.x runs only a workflow's published version,
+// and an error workflow without one is silently skipped (found by the workflow harness).
+const PUBLISH = ['leadPipeline0001', 'leadFollowDeliv1', 'leadErrorHandl01'];
 
 function log(message) {
   console.log(`[lead-setup] ${message}`);

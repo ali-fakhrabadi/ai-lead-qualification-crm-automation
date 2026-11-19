@@ -23,6 +23,8 @@ class RuleResult:
     evidence_found: list[str] = field(default_factory=list)
     evidence_dropped: int = 0
     requested_services: list[str] = field(default_factory=list)
+    missing_information: list[str] = field(default_factory=list)
+    missing_dropped: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -43,24 +45,49 @@ def ground_evidence(quotes: list[str], message: str) -> tuple[list[str], int]:
     return kept[:3], len(quotes) - len(kept[:3])
 
 
-def score(rubric: Rubric, output: QualificationOutput) -> int:
+def missing_items(output: QualificationOutput, provided: frozenset[str]) -> tuple[list[str], int]:
+    """De-duplicate the model's missing-information list and drop items the form already has.
+
+    A model sometimes lists the same item twice, or calls the company "missing" although the
+    lead typed it in; neither should cost the lead completeness points.
+    """
+    kept: list[str] = []
+    for item in output.missing_information:
+        if item.value not in kept and item.value not in provided:
+            kept.append(item.value)
+    return kept, len(output.missing_information) - len(kept)
+
+
+def score(
+    rubric: Rubric, output: QualificationOutput, provided: frozenset[str] = frozenset()
+) -> int:
     w = rubric.weights
-    completeness = max(0, w.completeness_max - w.per_missing_item * len(output.missing_information))
+    missing, _ = missing_items(output, provided)
+    completeness = max(0, w.completeness_max - w.per_missing_item * len(missing))
     value = w.fit.get(output.service_fit.value, 0) + w.urgency.get(output.urgency.value, 0)
     return max(0, min(100, value + completeness))
 
 
 def apply_rules(
-    rubric: Rubric, output: QualificationOutput, message: str, *, injection_detected: bool
+    rubric: Rubric,
+    output: QualificationOutput,
+    message: str,
+    *,
+    injection_detected: bool,
+    provided: frozenset[str] = frozenset(),
 ) -> RuleResult:
+    """``provided`` names the optional form fields the lead filled in (e.g. ``company``)."""
     evidence, dropped = ground_evidence(output.evidence, message)
     services = [s for s in output.requested_services if s in rubric.service_keys()]
+    missing, missing_dropped = missing_items(output, provided)
     result = RuleResult(
-        score=score(rubric, output),
+        score=score(rubric, output, provided),
         decision=Decision.NEEDS_REVIEW,
         evidence_found=evidence,
         evidence_dropped=dropped,
         requested_services=services,
+        missing_information=missing,
+        missing_dropped=missing_dropped,
     )
     reasons = result.reasons
     if injection_detected:

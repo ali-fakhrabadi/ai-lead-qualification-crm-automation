@@ -20,6 +20,7 @@ import random
 import signal
 import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import FrameType
 
 import httpx
@@ -135,6 +136,9 @@ def _handle_stop(_signum: int, _frame: FrameType | None) -> None:
     _stop = True
 
 
+HEARTBEAT = Path("/tmp/dispatcher-heartbeat")  # noqa: S108 - tmpfs inside the container
+
+
 def main() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
@@ -146,6 +150,7 @@ def main() -> None:
         while not _stop:
             try:
                 handled = run_once(settings, client)
+                HEARTBEAT.touch()  # the container health check: the loop runs and reaches the DB
                 if time.monotonic() - last_purge > 3600:
                     ratelimit.purge_old()
                     last_purge = time.monotonic()

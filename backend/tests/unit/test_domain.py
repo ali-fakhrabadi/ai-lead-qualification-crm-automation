@@ -80,7 +80,8 @@ def test_website_is_reduced_to_a_host_name(raw: str | None, host: str | None) ->
 
 
 @pytest.mark.parametrize(
-    "raw", ["ftp://example.com", "https://user:pw@example.com", "http://localhost", "javascript:alert(1)"]
+    "raw",
+    ["ftp://example.com", "https://user:pw@example.com", "http://localhost", "javascript:alert(1)"],
 )
 def test_unsafe_websites_are_rejected(raw: str) -> None:
     with pytest.raises(InvalidField):
@@ -131,8 +132,14 @@ def test_tampered_body_wrong_secret_and_unknown_source_are_refused() -> None:
     with pytest.raises(Unauthorized):
         webhooks.verify(s, "partner-demo", "1763560000", signature, BODY + b" ", now=1_763_560_000)
     with pytest.raises(Unauthorized):
-        webhooks.verify(s, "partner-demo", "1763560000",
-                        webhooks.sign("other", 1_763_560_000, BODY), BODY, now=1_763_560_000)
+        webhooks.verify(
+            s,
+            "partner-demo",
+            "1763560000",
+            webhooks.sign("other", 1_763_560_000, BODY),
+            BODY,
+            now=1_763_560_000,
+        )
     with pytest.raises(NotFound):
         webhooks.verify(s, "unknown", "1763560000", signature, BODY, now=1_763_560_000)
     with pytest.raises(Unauthorized):
@@ -144,16 +151,16 @@ def test_old_or_future_timestamps_are_refused(age: int) -> None:
     s = settings()
     signature = webhooks.sign("s3cret-for-tests", 1_763_560_000, BODY)
     with pytest.raises(Unauthorized) as exc:
-        webhooks.verify(s, "partner-demo", "1763560000", signature, BODY,
-                        now=1_763_560_000 + age)
+        webhooks.verify(s, "partner-demo", "1763560000", signature, BODY, now=1_763_560_000 + age)
     assert exc.value.code == "expired_signature"
 
 
 def test_signature_header_may_carry_several_candidates_during_rotation() -> None:
     s = settings()
     good = webhooks.sign("s3cret-for-tests", 1_763_560_000, BODY)
-    webhooks.verify(s, "partner-demo", "1763560000", f"v1=deadbeef, {good}", BODY,
-                    now=1_763_560_000)
+    webhooks.verify(
+        s, "partner-demo", "1763560000", f"v1=deadbeef, {good}", BODY, now=1_763_560_000
+    )
 
 
 # --- lifecycle ---------------------------------------------------------------------------------
@@ -164,8 +171,12 @@ def make_lead(status: LeadStatus) -> Lead:
 def test_happy_path_transitions_are_allowed() -> None:
     lead = make_lead(LeadStatus.NEW)
     for target in (
-        LeadStatus.PENDING_QUALIFICATION, LeadStatus.QUALIFIED, LeadStatus.SYNCED_TO_CRM,
-        LeadStatus.FOLLOW_UP_DRAFT_READY, LeadStatus.FOLLOW_UP_APPROVED, LeadStatus.FOLLOW_UP_SENT,
+        LeadStatus.PENDING_QUALIFICATION,
+        LeadStatus.QUALIFIED,
+        LeadStatus.SYNCED_TO_CRM,
+        LeadStatus.FOLLOW_UP_DRAFT_READY,
+        LeadStatus.FOLLOW_UP_APPROVED,
+        LeadStatus.FOLLOW_UP_SENT,
     ):
         lifecycle.transition(lead, target)
     assert lead.status is LeadStatus.FOLLOW_UP_SENT
@@ -203,8 +214,9 @@ def test_dispatch_token_binds_event_and_payload_hash() -> None:
     s = settings()
     event_id = uuid.uuid4()
     payload = b'{"event_id": "x"}'
-    claims = jwt.decode(dispatch_token(s, event_id, payload), "d" * 40, algorithms=["HS256"],
-                        audience="n8n")
+    claims = jwt.decode(
+        dispatch_token(s, event_id, payload), "d" * 40, algorithms=["HS256"], audience="n8n"
+    )
     assert claims["eid"] == str(event_id)
     assert claims["payload_sha256"] == hashlib.sha256(payload).hexdigest()
     assert claims["iss"] == "lead-automation-dispatcher"
@@ -223,17 +235,36 @@ def test_logs_redact_tokens_and_mask_emails() -> None:
 
 def test_production_requires_strong_secrets_and_forbids_fault_injection() -> None:
     with pytest.raises(ValueError, match="LEAD_JWT_SECRET"):
-        Settings(environment="production", jwt_secret="short", internal_token="i" * 40,
-                 dispatch_secret="d" * 40)
+        Settings(
+            environment="production",
+            jwt_secret="short",
+            internal_token="i" * 40,
+            dispatch_secret="d" * 40,
+        )
     with pytest.raises(ValueError, match="FAULT_INJECTION"):
-        Settings(environment="production", jwt_secret="j" * 40, internal_token="i" * 40,
-                 dispatch_secret="d" * 40, fault_injection_enabled=True)
+        Settings(
+            environment="production",
+            jwt_secret="j" * 40,
+            internal_token="i" * 40,
+            dispatch_secret="d" * 40,
+            fault_injection_enabled=True,
+        )
 
 
 def test_real_email_delivery_needs_a_second_explicit_switch() -> None:
     with pytest.raises(ValueError, match="ALLOW_REAL_RECIPIENTS"):
         settings(delivery_mode="smtp")
-    assert settings(delivery_mode="smtp", delivery_allow_real_recipients=True).delivery_mode == "smtp"
+    assert (
+        settings(delivery_mode="smtp", delivery_allow_real_recipients=True).delivery_mode == "smtp"
+    )
+
+
+def test_an_empty_thread_count_from_compose_means_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    # compose.yaml passes LEAD_LLM_NUM_THREAD as "" when .env does not set it.
+    monkeypatch.setenv("LEAD_LLM_NUM_THREAD", "")
+    assert Settings().llm_num_thread is None
+    monkeypatch.setenv("LEAD_LLM_NUM_THREAD", "6")
+    assert Settings().llm_num_thread == 6
 
 
 def test_openai_provider_needs_a_key() -> None:

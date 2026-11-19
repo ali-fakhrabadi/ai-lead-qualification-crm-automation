@@ -30,20 +30,27 @@ class FakeCrm:
         queue = self.failures.get(key)
         if queue:
             status = queue.pop(0)
-            return httpx.Response(status, json={"message": "scripted"},
-                                  headers={"Retry-After": "1"} if status == 429 else {})
+            return httpx.Response(
+                status,
+                json={"message": "scripted"},
+                headers={"Retry-After": "1"} if status == 429 else {},
+            )
         body = json.loads(request.content) if request.content else {}
         if key == "POST /crm/v3/objects/contacts/search":
             email = body["filterGroups"][0]["filters"][0]["value"]
-            hits = [{"id": cid, "properties": c} for cid, c in self.contacts.items()
-                    if c["email"] == email]
+            hits = [
+                {"id": cid, "properties": c}
+                for cid, c in self.contacts.items()
+                if c["email"] == email
+            ]
             return httpx.Response(200, json={"total": len(hits), "results": hits})
         if key == "POST /crm/v3/objects/contacts":
             email = body["properties"]["email"]
             for cid, contact in self.contacts.items():
                 if contact["email"] == email:
-                    return httpx.Response(409, json={
-                        "message": f"Contact already exists. Existing ID: {cid}"})
+                    return httpx.Response(
+                        409, json={"message": f"Contact already exists. Existing ID: {cid}"}
+                    )
             cid = str(100 + len(self.contacts))
             self.contacts[cid] = dict(body["properties"])
             return httpx.Response(201, json={"id": cid, "properties": body["properties"]})
@@ -65,11 +72,14 @@ class FakeCrm:
         return httpx.Response(404)
 
 
-def client(fake: FakeCrm, records: list[tuple[Any, ...]] | None = None,
-           attempts: int = 3) -> HubSpotStyleClient:
+def client(
+    fake: FakeCrm, records: list[tuple[Any, ...]] | None = None, attempts: int = 3
+) -> HubSpotStyleClient:
     sleeps: list[float] = []
     c = HubSpotStyleClient(
-        "http://crm.test", "token-123", transport=httpx.MockTransport(fake),
+        "http://crm.test",
+        "token-123",
+        transport=httpx.MockTransport(fake),
         retry=RetryPolicy(attempts, 0.5, 4.0),
         record=(lambda *a: records.append(a)) if records is not None else None,
         sleep=sleeps.append,
@@ -121,8 +131,9 @@ def test_transient_errors_beyond_the_budget_raise_transient() -> None:
     assert len(fake.calls) == 3
 
 
-@pytest.mark.parametrize(("status", "code"), [(400, "rejected"), (401, "unauthorized"),
-                                              (403, "forbidden")])
+@pytest.mark.parametrize(
+    ("status", "code"), [(400, "rejected"), (401, "unauthorized"), (403, "forbidden")]
+)
 def test_permanent_errors_are_not_retried(status: int, code: str) -> None:
     fake = FakeCrm()
     fake.failures["POST /crm/v3/objects/contacts"] = [status]
@@ -136,8 +147,13 @@ def test_timeouts_are_transient() -> None:
     def timeout(_request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("slow")
 
-    c = HubSpotStyleClient("http://crm.test", "t", transport=httpx.MockTransport(timeout),
-                           retry=RetryPolicy(2, 0, 0), sleep=lambda _s: None)
+    c = HubSpotStyleClient(
+        "http://crm.test",
+        "t",
+        transport=httpx.MockTransport(timeout),
+        retry=RetryPolicy(2, 0, 0),
+        sleep=lambda _s: None,
+    )
     with pytest.raises(CrmError) as exc:
         c.find_contact("x@y.example")
     assert exc.value.transient and exc.value.code == "timeout"
@@ -147,7 +163,9 @@ def test_company_association_and_note_payloads() -> None:
     fake = FakeCrm()
     c = client(fake)
     cid = c.create_contact({"email": "maya@harborview.example"})
-    company = c.find_company("harborview.example") or c.create_company("Harborview", "harborview.example")
+    company = c.find_company("harborview.example") or c.create_company(
+        "Harborview", "harborview.example"
+    )
     c.associate(cid, company)
     c.add_note(cid, "Qualified", "2026-11-19T10:00:00+00:00")
     assert (cid, "7") in fake.associations
@@ -163,10 +181,20 @@ def test_backoff_delay_is_capped_and_jittered() -> None:
 
 
 def test_contact_mapping_uses_configured_names_and_skips_empty_values() -> None:
-    lead = Lead(reference=1001, email_normalized="maya@harborview.example", first_name="Maya",
-                last_name="Chen", company="Harborview", job_title=None, website=None,
-                country="Canada", interest="crm_integration", decision=Decision.QUALIFIED,
-                score=85, intent_category="new_project")
+    lead = Lead(
+        reference=1001,
+        email_normalized="maya@harborview.example",
+        first_name="Maya",
+        last_name="Chen",
+        company="Harborview",
+        job_title=None,
+        website=None,
+        country="Canada",
+        interest="crm_integration",
+        decision=Decision.QUALIFIED,
+        score=85,
+        intent_category="new_project",
+    )
     props = contact_properties(lead)
     assert props["email"] == "maya@harborview.example"
     assert props["lq_reference"] == "L-1001" and props["lq_score"] == "85"
@@ -176,10 +204,18 @@ def test_contact_mapping_uses_configured_names_and_skips_empty_values() -> None:
 
 def test_note_contains_the_assessment_summary_not_the_raw_message() -> None:
     lead = Lead(reference=1001, message="secret internal details")
-    assessment = Assessment(provider="ollama", model="llama3.1:8b", status=AssessmentStatus.VALID,
-                            parsed={"intent_category": "new_project", "service_fit": "strong",
-                                    "urgency": "high", "reasoning_summary": "Clear need."},
-                            rules={"decision": "qualified", "score": 85, "reasons": []})
+    assessment = Assessment(
+        provider="ollama",
+        model="llama3.1:8b",
+        status=AssessmentStatus.VALID,
+        parsed={
+            "intent_category": "new_project",
+            "service_fit": "strong",
+            "urgency": "high",
+            "reasoning_summary": "Clear need.",
+        },
+        rules={"decision": "qualified", "score": 85, "reasons": []},
+    )
     body = note_body(lead, assessment)
     assert "Decision: qualified (score 85/100)" in body
     assert "secret internal details" not in body

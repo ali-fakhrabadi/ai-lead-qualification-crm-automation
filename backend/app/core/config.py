@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _SECRET_FIELDS = (
@@ -138,6 +138,12 @@ class Settings(BaseSettings):
     @classmethod
     def _load_secret_files(cls, data: Any) -> Any:
         return _read_secret_files(dict(data)) if isinstance(data, dict) else data
+
+    @field_validator("llm_num_thread", mode="before")
+    @classmethod
+    def _empty_means_unset(cls, value: Any) -> Any:
+        # Compose passes "${LEAD_LLM_NUM_THREAD:-}" through as an empty string when unset.
+        return None if isinstance(value, str) and not value.strip() else value
 
     @model_validator(mode="after")
     def _check(self) -> Settings:

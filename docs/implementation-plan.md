@@ -86,7 +86,7 @@ follow_up_draft_ready → follow_up_approved | follow_up_rejected → closed`, p
 
 ## Evaluation
 
-At least 100 synthetic scenarios (`evals/lead-scenarios.jsonl`): valid leads across intents and fit
+At least 100 synthetic scenarios (`docs/evaluation/lead-evaluation-dataset.jsonl`, 128 built by `evals/build_dataset.py`): valid leads across intents and fit
 levels, webhook replays, same-email updates, similar-but-distinct people, invalid input, prompt
 injection, CRM transient/permanent failures (fault injection in the demo CRM), malformed model
 output (fault injection in the provider wrapper, test mode only). Run through the deployed stack

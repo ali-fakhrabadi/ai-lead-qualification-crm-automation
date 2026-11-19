@@ -164,8 +164,10 @@ test('summarize: review needed or permanent errors stop; exhausted retries are e
 
 test('error details: forwards identifiers and a short message only', async () => {
   const [item] = await run('error_details.js', {
-    json: { execution: { id: 77, lastNodeExecuted: 'Sync CRM contact', error: { message: `boom\n${'x'.repeat(500)}` } },
-      workflow: { name: 'Lead pipeline' } },
+    // $json is the Settings node's output; the error comes from the trigger node by name.
+    json: { api_url: 'http://api:8000' },
+    nodes: { 'Workflow failed': { execution: { id: 77, lastNodeExecuted: 'Sync CRM contact', error: { message: `boom\n${'x'.repeat(500)}` } },
+      workflow: { name: 'Lead pipeline' } } },
   });
   assert.equal(item.json.execution_id, '77');
   assert.equal(item.json.node, 'Sync CRM contact');
