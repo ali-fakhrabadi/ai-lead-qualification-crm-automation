@@ -63,7 +63,8 @@
     hero: () => `${header}<h1>AI lead <em>qualification</em> &amp; CRM sync with n8n</h1>
       <p class="sub">Form or webhook in, duplicates stopped, a model suggests, your rules decide, the CRM is updated, and a person approves every reply.</p>
       <div class="metrics">${M.map((m, i) => `<div class="m ${i ? "c" : "g"}"><b class="mono">${m[0]}</b><span>${m[1]}</span></div>`).join("")}</div>
-      <div class="chips mono"><span class="chip">FastAPI</span><span class="chip">n8n</span><span class="chip">Ollama / OpenAI</span><span class="chip">HubSpot-style CRM</span><span class="chip">Docker</span></div>`,
+      <div class="chips mono"><span class="chip">FastAPI</span><span class="chip">n8n</span><span class="chip">Ollama / OpenAI</span><span class="chip">HubSpot-style CRM</span><span class="chip">Docker</span></div>
+      ${frame("04-lead-detail-qualification.png", 500)}`,
     workflow: () => `${header}<h1><em>n8n</em> runs every step, with retries</h1>
       <p class="sub">Signed events, the API decides the next step, backoff with jitter and Retry-After, an error workflow, and an outcome report for every run.</p>${frame("09-n8n-workflow-canvas.png", 760, "center 40%")}`,
     crm: () => `${header}<h1>Rules decide, the <em>CRM</em> stays clean</h1>

@@ -47,7 +47,7 @@
        <div class="flow">${steps}</div>`
     : `${header}<h1>Nothing is sent<br>without a <em>person</em>.</h1>
        <p class="sub">Idempotent intake, rules that decide, a model that suggests, retries that never duplicate a contact.</p>
-       <div class="flow"><span class="step mono g">github.com/ali-fakhrabadi/ai-lead-qualification-crm-automation</span></div>
+       <div class="flow"><span class="step mono g">${new URLSearchParams(location.search).get("nolink") ? "AI lead qualification &amp; CRM automation" : "github.com/ali-fakhrabadi/ai-lead-qualification-crm-automation"}</span></div>
        <p class="note">Independent reference project · FastAPI · n8n · PostgreSQL · Ollama · React</p>`;
 </script>
 </body>
