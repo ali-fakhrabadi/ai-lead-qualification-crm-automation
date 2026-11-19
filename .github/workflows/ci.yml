@@ -1,0 +1,220 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_IMAGE: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+
+jobs:
+  backend:
+    name: Backend - lint, types, unit and integration tests, audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: leads
+          # Throwaway superuser for a database that only exists during this job.
+          POSTGRES_PASSWORD: ci-superuser-${{ github.run_id }}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d leads" --health-interval 5s
+          --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - name: Create the least-privilege roles with the deployment's own init script
+        env:
+          PG: ${{ job.services.postgres.id }}
+        run: |
+          dir=$(mktemp -d)
+          for name in db_owner_password db_app_password n8n_db_password crm_db_password; do
+            openssl rand -hex 24 > "$dir/$name"
+            echo "::add-mask::$(cat "$dir/$name")"
+          done
+          docker exec "$PG" mkdir -p /run/secrets
+          docker cp "$dir/." "$PG:/run/secrets/"
+          docker cp deploy/postgres/initdb/10-create-roles.sh "$PG:/tmp/roles.sh"
+          docker exec -e POSTGRES_USER=postgres -e POSTGRES_DB=leads "$PG" bash /tmp/roles.sh
+          {
+            echo "LEAD_DB_PASSWORD=$(cat "$dir/db_app_password")"
+            echo "LEAD_DB_ADMIN_PASSWORD=$(cat "$dir/db_owner_password")"
+          } >> "$GITHUB_ENV"
+          rm -rf "$dir"
+      - name: Install locked dependencies (hash-checked)
+        working-directory: backend
+        run: python -m pip install --require-hashes -r requirements.txt -r requirements-dev.txt
+      - name: Lint and format (backend, e2e, evals, scripts, workflow harness)
+        run: |
+          ruff check --config backend/pyproject.toml backend e2e evals scripts n8n/tests/harness
+          ruff format --check --config backend/pyproject.toml backend e2e evals scripts n8n/tests/harness
+      - name: Type check
+        working-directory: backend
+        run: mypy app crm_demo
+      - name: Unit and integration tests (real PostgreSQL, least-privilege app role)
+        working-directory: backend
+        env:
+          LEAD_DB_HOST: 127.0.0.1
+          LEAD_DB_NAME: leads_test
+          LEAD_DB_USER: lead_app
+          LEAD_DB_ADMIN_USER: lead_owner
+        run: pytest -p no:cacheprovider --cov=app --cov=crm_demo --cov-report=term --cov-fail-under=85
+      - name: Dependency vulnerability audit
+        working-directory: backend
+        run: pip-audit --strict --disable-pip --require-hashes -r requirements.txt
+      - name: Evaluation dataset is the generated one and well formed
+        run: |
+          python evals/build_dataset.py --check
+          python - <<'EOF'
+          import json
+          rows = [json.loads(l) for l in open("docs/evaluation/lead-evaluation-dataset.jsonl", encoding="utf-8")]
+          ids = [r["id"] for r in rows]
+          assert len(ids) == len(set(ids)), "duplicate scenario ids"
+          assert len(rows) >= 100, len(rows)
+          for r in rows:
+              for key in ("lead", "second_lead"):
+                  email = (r.get(key) or {}).get("email")
+                  if email and r["kind"] != "invalid_input":
+                      assert email.endswith(".example"), email
+          print(f"{len(rows)} synthetic scenarios, reserved .example domains only")
+          EOF
+
+  frontend:
+    name: Frontend - types, tests, build, audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run test:coverage
+      - run: npm run build
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  workflows:
+    name: n8n - exports, Code nodes, workflow harness in a disposable n8n
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Committed workflow JSON matches its definition
+        run: python3 scripts/build_workflows.py --check
+      - name: Code node unit tests
+        run: node --test n8n/tests/code_nodes.test.mjs
+      - name: Workflow harness (real n8n, imported workflows, scripted API failures)
+        run: n8n/tests/harness/run.sh
+      - name: Harness report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: n8n-harness-report
+          path: n8n/tests/harness/out/
+          if-no-files-found: ignore
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: gitleaks (full history)
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo \
+            "$GITLEAKS_IMAGE" git /repo --redact --no-banner --exit-code 1
+
+  dependency-review:
+    name: Dependency and license review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0-only, GPL-3.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later
+
+  stack:
+    name: Containers - build, scan, full stack, 15 end-to-end scenarios (fixture model)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    needs: [backend, frontend, workflows]
+    env:
+      COMPOSE_FILE: compose.yaml:compose.eval.yaml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure a throwaway deployment
+        run: |
+          scripts/init-secrets.sh
+          cp .env.example .env
+          # No model server in CI: the deterministic fixture provider (labelled as such in
+          # every assessment). The real model is measured by evals/run.sh on real hardware.
+          echo "LEAD_LLM_PROVIDER=fixture" >> .env
+          docker compose config --quiet
+      - name: Build images
+        run: docker compose build
+      - name: Scan images for known vulnerabilities (fixed HIGH/CRITICAL fail the build)
+        run: |
+          for image in lead-automation-api:local lead-automation-web:local; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" image \
+              --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+              --no-progress "$image"
+          done
+      - name: Start the stack
+        run: |
+          docker compose up -d --wait
+          curl -fsS http://127.0.0.1:8080/api/ready
+          scripts/create-demo-users.sh
+      - name: End-to-end scenarios and screenshots
+        run: e2e/run.sh
+      - name: Screenshots and report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-fixture-model
+          path: e2e/out/
+          if-no-files-found: ignore
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
