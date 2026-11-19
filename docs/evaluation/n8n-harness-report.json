@@ -1,0 +1,249 @@
+{
+  "n8n_rest_login": true,
+  "scenarios": 12,
+  "passed": 12,
+  "checks": 49,
+  "checks_passed": 49,
+  "results": [
+    {
+      "end": {
+        "execution_id": "1",
+        "outcome": {
+          "execution_id": "1",
+          "status": "success",
+          "step": "follow_up_draft",
+          "duration_ms": 561,
+          "error": null
+        },
+        "workflow_error": null
+      },
+      "checks": {
+        "webhook_accepted_202": true,
+        "reported_success": true,
+        "qualified_once": true,
+        "crm_synced_once": true,
+        "draft_created_once": true,
+        "operator_notified_once": true,
+        "n8n_execution_success": true
+      },
+      "title": "pipeline: new lead runs qualification, CRM sync and draft once",
+      "seconds": 5.6,
+      "passed": true
+    },
+    {
+      "checks": {
+        "webhook_accepted_202": true,
+        "second_run_reported": true,
+        "second_run_stopped_at_next_step": true,
+        "no_new_step_calls": true,
+        "still_one_crm_contact": true,
+        "still_one_notification": true
+      },
+      "title": "pipeline: replayed event resumes at the lead's state, no duplicates",
+      "seconds": 1.2,
+      "passed": true
+    },
+    {
+      "end": {
+        "execution_id": "3",
+        "outcome": {
+          "execution_id": "3",
+          "status": "success",
+          "step": "follow_up_draft",
+          "duration_ms": 7299,
+          "error": null
+        },
+        "workflow_error": null
+      },
+      "observed": {
+        "seconds_between_crm_calls": 7.0
+      },
+      "checks": {
+        "reported_success": true,
+        "crm_called_twice": true,
+        "retry_after_honoured": true,
+        "one_contact_created": true,
+        "draft_created_once": true
+      },
+      "title": "pipeline: CRM 429 with Retry-After is waited out, one contact",
+      "seconds": 8.2,
+      "passed": true
+    },
+    {
+      "end": {
+        "execution_id": "4",
+        "outcome": {
+          "execution_id": "4",
+          "status": "error",
+          "step": "crm_sync",
+          "duration_ms": 27338,
+          "error": "crm_unavailable"
+        },
+        "workflow_error": null
+      },
+      "checks": {
+        "three_attempts_then_stop": true,
+        "reported_error_for_redelivery": true,
+        "no_draft_without_crm": true
+      },
+      "title": "pipeline: CRM outage exhausts 3 attempts, reported for redelivery",
+      "seconds": 28.4,
+      "passed": true
+    },
+    {
+      "end": {
+        "execution_id": "5",
+        "outcome": {
+          "execution_id": "5",
+          "status": "stopped",
+          "step": "crm_sync",
+          "duration_ms": 136,
+          "error": "crm_rejected"
+        },
+        "workflow_error": null
+      },
+      "checks": {
+        "not_retried": true,
+        "reported_stopped_with_error": true,
+        "no_draft": true
+      },
+      "title": "pipeline: CRM permanent error stops without retry",
+      "seconds": 1.3,
+      "passed": true
+    },
+    {
+      "end": {
+        "execution_id": "6",
+        "outcome": {
+          "execution_id": "6",
+          "status": "success",
+          "step": "follow_up_draft",
+          "duration_ms": 14278,
+          "error": null
+        },
+        "workflow_error": null
+      },
+      "checks": {
+        "reported_success": true,
+        "qualify_called_twice": true,
+        "crm_synced_once": true
+      },
+      "title": "pipeline: model unavailable once, retried with backoff",
+      "seconds": 15.3,
+      "passed": true
+    },
+    {
+      "end": {
+        "execution_id": "7",
+        "outcome": {
+          "execution_id": "7",
+          "status": "stopped",
+          "step": "qualify",
+          "duration_ms": 91,
+          "error": null
+        },
+        "workflow_error": null
+      },
+      "checks": {
+        "reported_stopped": true,
+        "no_crm_sync": true,
+        "no_draft": true,
+        "n8n_execution_success": true
+      },
+      "title": "pipeline: invalid model output stops for review, no CRM, no draft",
+      "seconds": 1.2,
+      "passed": true
+    },
+    {
+      "end": {
+        "execution_id": "8",
+        "outcome": {
+          "execution_id": "8",
+          "status": "success",
+          "step": "follow_up_draft",
+          "duration_ms": 20487,
+          "error": null
+        },
+        "workflow_error": null
+      },
+      "checks": {
+        "reported_success": true,
+        "draft_called_twice": true,
+        "one_draft_created": true
+      },
+      "title": "pipeline: draft step retried without creating a second draft",
+      "seconds": 21.4,
+      "passed": true
+    },
+    {
+      "observed": {
+        "wrong_key": 403,
+        "expired": 403,
+        "tampered_payload": 400
+      },
+      "checks": {
+        "wrong_key_refused": true,
+        "expired_refused": true,
+        "tampered_payload_refused_400": true,
+        "no_api_calls_for_refused_events": true
+      },
+      "title": "webhook: wrong key, expired token and tampered payload refused",
+      "seconds": 3.3,
+      "passed": true
+    },
+    {
+      "end": {
+        "execution_id": "10",
+        "outcome": null,
+        "workflow_error": {
+          "execution_id": "10",
+          "workflow": "Lead pipeline: intake, AI qualification, CRM, follow-up draft",
+          "node": "Next step",
+          "message": "The service was not able to process your request"
+        }
+      },
+      "checks": {
+        "error_workflow_reported": true,
+        "error_names_the_failed_node": true,
+        "error_report_has_no_lead_data": true,
+        "no_outcome_reported": true,
+        "n8n_execution_error": true
+      },
+      "title": "error workflow: unexpected failure reported with ids only",
+      "seconds": 5.3,
+      "passed": true
+    },
+    {
+      "end": {
+        "execution_id": "12",
+        "outcome": {
+          "execution_id": "12",
+          "status": "success",
+          "step": "deliver",
+          "duration_ms": 6134,
+          "error": null
+        },
+        "workflow_error": null
+      },
+      "checks": {
+        "reported_success": true,
+        "retried_after_503": true,
+        "delivered_once": true
+      },
+      "title": "delivery: approved draft delivered once after a 503",
+      "seconds": 7.3,
+      "passed": true
+    },
+    {
+      "checks": {
+        "second_run_reported": true,
+        "replay_did_not_send_again": true,
+        "still_delivered_once": true
+      },
+      "title": "delivery: replayed approval never sends twice",
+      "seconds": 1.2,
+      "passed": true
+    }
+  ],
+  "finished_at": "2026-11-19T16:05:26.773599+00:00"
+}
