@@ -69,4 +69,6 @@ Each of these was found by a test run, fixed, and covered by a test:
   a throwaway PostgreSQL on its own internal Docker network and the existing dev-tools image;
   the deployed stack was not touched. ruff and mypy clean; 183 passed, 1 skipped (the dataset
   test, dataset not copied), 89 % coverage. Containers and network removed afterwards.
+- Cross-check on the workstation (local Python 3.12, throwaway PostgreSQL 17.11 with the
+  deployment's role script): 184 passed, 88.87 % coverage, including the dataset test.
 - Not done: a run against a real GoHighLevel account (none available).
