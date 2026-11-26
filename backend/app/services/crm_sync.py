@@ -22,7 +22,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import AppError, NotFound, ServiceUnavailable
-from app.crm.client import CrmError, HubSpotStyleClient, RetryPolicy
+from app.crm import gohighlevel
+from app.crm.base import CrmConnector, CrmError, RetryPolicy
+from app.crm.client import HubSpotStyleClient
 from app.crm.mapping import contact_properties, note_body
 from app.db.models import (
     Assessment,
@@ -36,25 +38,30 @@ from app.db.models import (
 from app.services import audit, lifecycle
 
 S = LeadStatus
+HUBSPOT_URL = "https://api.hubapi.com"
 SYNCABLE = frozenset({S.QUALIFIED, S.SYNCED_TO_CRM, S.RETRY_PENDING, S.FAILED})
 
 
-def make_client(settings: Settings, record: Any, transport: Any = None) -> HubSpotStyleClient:
-    base = (
-        settings.crm_base_url
-        if settings.crm_provider == "demo"
-        else (settings.crm_base_url or "https://api.hubapi.com")
-    )
-    return HubSpotStyleClient(
-        base,
-        settings.crm_token.get_secret_value(),
-        timeout_s=settings.crm_timeout_s,
-        retry=RetryPolicy(
+def make_client(settings: Settings, record: Any, transport: Any = None) -> CrmConnector:
+    common: dict[str, Any] = {
+        "timeout_s": settings.crm_timeout_s,
+        "retry": RetryPolicy(
             settings.crm_max_attempts, settings.crm_backoff_base_s, settings.crm_backoff_cap_s
         ),
-        record=record,
-        transport=transport,
-    )
+        "record": record,
+        "transport": transport,
+    }
+    token = settings.crm_token.get_secret_value()
+    if settings.crm_provider == "gohighlevel":
+        return gohighlevel.GoHighLevelClient(
+            settings.crm_base_url or gohighlevel.DEFAULT_BASE_URL,
+            token,
+            location_id=settings.crm_location_id,
+            **common,
+        )
+    default = "http://crm-demo:8100" if settings.crm_provider == "demo" else HUBSPOT_URL
+    base = settings.crm_base_url or default
+    return HubSpotStyleClient(base, token, **common)
 
 
 def _hash(props: dict[str, str]) -> str:
@@ -89,7 +96,7 @@ def sync(
         record = CrmSync(id=uuid.uuid4(), lead_id=lead.id, provider=provider)
         db.add(record)
         db.flush()
-    props = contact_properties(lead)
+    props = contact_properties(lead, provider)
     phash = _hash(props)
     needs_note = record.noted_assessment_id != lead.current_assessment_id
     if (

@@ -42,7 +42,7 @@ flowchart LR
   DB --> D
   N -- next step / qualify / crm-sync / draft --> A
   A -- business fields only --> O[Ollama · llama3.1]
-  A -- upsert --> C[CRM<br/>demo or HubSpot]
+  A -- upsert --> C[CRM<br/>demo, HubSpot or GoHighLevel]
   A -- approved drafts --> M[Mail sink]
 ```
 
@@ -145,7 +145,9 @@ manual import.
 
 **CRM:** the bundled demo CRM by default; `LEAD_CRM_PROVIDER=hubspot` with a private-app token
 in `secrets/crm_token` (use a HubSpot test account; not verified against a real account in this
-project). See [docs/crm-integration.md](docs/crm-integration.md).
+project), or `LEAD_CRM_PROVIDER=gohighlevel` with a Private Integration Token and
+`LEAD_CRM_LOCATION_ID` (tested against a local mock of its API only). See
+[docs/crm-integration.md](docs/crm-integration.md).
 
 **Model and data transfer:** with Ollama, nothing leaves your network. With OpenAI, the
 inquiry's business fields (interest, message, company, job title, domain, country; never name or

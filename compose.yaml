@@ -57,6 +57,7 @@ x-app-env: &app-env
   LEAD_OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
   LEAD_CRM_PROVIDER: ${LEAD_CRM_PROVIDER:-demo}
   LEAD_CRM_BASE_URL: ${LEAD_CRM_BASE_URL:-http://crm-demo:8100}
+  LEAD_CRM_LOCATION_ID: ${LEAD_CRM_LOCATION_ID:-}
   LEAD_CRM_TOKEN_FILE: /run/secrets/crm_token
   LEAD_N8N_BASE_URL: http://n8n:5678
   LEAD_DELIVERY_MODE: sink

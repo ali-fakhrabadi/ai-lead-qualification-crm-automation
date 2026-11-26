@@ -62,5 +62,11 @@ Each of these was found by a test run, fixed, and covered by a test:
   `docs/integration-case-study.md` and `docs/ci-cd-and-deployment.md`; linked from the README.
 - CI durations quoted from the GitHub Actions run of `3318a41` (all jobs green, about 13 minutes
   from push to the last job).
-- A second connector is proposed, not built; it will be built against a local mock with tests
-  once chosen.
+- Second connector chosen by the user: GoHighLevel. Built on a new shared connector base
+  (`backend/app/crm/base.py`), with a local mock of the API subset modelled on GoHighLevel's
+  published OpenAPI specs; undocumented behaviour is marked as an assumption in the mock.
+- Tests ran on lab host 24.179 (the workstation lacks the resources), in a separate folder with
+  a throwaway PostgreSQL on its own internal Docker network and the existing dev-tools image;
+  the deployed stack was not touched. ruff and mypy clean; 183 passed, 1 skipped (the dataset
+  test, dataset not copied), 89 % coverage. Containers and network removed afterwards.
+- Not done: a run against a real GoHighLevel account (none available).

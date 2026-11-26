@@ -1,8 +1,10 @@
 """Configurable mapping from a lead and its assessment to CRM contact properties.
 
-HubSpot accounts differ: standard properties exist everywhere, custom ones (``lq_*``) must be
-created first (docs/crm-integration.md). Set ``LEAD_CRM_PROPERTY_MAP_FILE`` to a JSON file with
-the same shape as ``DEFAULT_MAP`` to change names or drop custom properties.
+Each connector has a default map: ``DEFAULT_MAP`` (HubSpot property names, also used by the demo
+CRM) and ``GOHIGHLEVEL_MAP`` (GoHighLevel contact fields). Standard fields exist in every
+account; custom ones (``lq_*``) must be created first (docs/crm-integration.md). Set
+``LEAD_CRM_PROPERTY_MAP_FILE`` to a JSON file with the same shape to change names or drop custom
+properties.
 """
 
 from __future__ import annotations
@@ -37,17 +39,33 @@ DEFAULT_MAP: dict[str, Any] = {
     "constants": {"lifecyclestage": "lead"},
 }
 
+# GoHighLevel: top-level contact fields in camelCase; anything else is sent as a custom field
+# by key (create the custom fields in the location first, or drop them from the map). Country
+# is left out: GoHighLevel expects a country code and the form collects free text.
+GOHIGHLEVEL_MAP: dict[str, Any] = {
+    "standard": {
+        "email": "email_normalized",
+        "firstName": "first_name",
+        "lastName": "last_name",
+        "companyName": "company",
+        "website": "website",
+    },
+    "custom": dict(DEFAULT_MAP["custom"]),
+    "constants": {"source": "lead-qualification"},
+}
+DEFAULT_MAPS = {"gohighlevel": GOHIGHLEVEL_MAP}
+
 
 @lru_cache
-def property_map() -> dict[str, Any]:
+def property_map(provider: str = "demo") -> dict[str, Any]:
     path = get_settings().crm_property_map_file
     if path:
         return json.loads(Path(path).read_text(encoding="utf-8"))  # type: ignore[no-any-return]
-    return DEFAULT_MAP
+    return DEFAULT_MAPS.get(provider, DEFAULT_MAP)
 
 
-def contact_properties(lead: Lead) -> dict[str, str]:
-    mapping = property_map()
+def contact_properties(lead: Lead, provider: str = "demo") -> dict[str, str]:
+    mapping = property_map(provider)
     props: dict[str, str] = {}
     for crm_name, attr in mapping.get("standard", {}).items():
         value = getattr(lead, attr, None)

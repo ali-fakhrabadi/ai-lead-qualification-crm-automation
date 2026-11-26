@@ -110,14 +110,18 @@ class Settings(BaseSettings):
     rubric_file: str | None = None
 
     # CRM
-    crm_provider: Literal["demo", "hubspot", "none"] = "demo"
-    crm_base_url: str = "http://demo-crm:8100"
+    crm_provider: Literal["demo", "hubspot", "gohighlevel", "none"] = "demo"
+    # Empty: the provider's default (demo: the crm-demo container; hubspot, gohighlevel: the
+    # vendor's API). Compose sets the demo URL, so set it explicitly for the other providers.
+    crm_base_url: str = ""
     crm_token: SecretStr = SecretStr("")
     crm_timeout_s: float = Field(10.0, ge=1, le=120)
     crm_max_attempts: int = Field(3, ge=1, le=10)
     crm_backoff_base_s: float = Field(0.5, ge=0.0, le=30)
     crm_backoff_cap_s: float = Field(4.0, ge=0.0, le=120)
     crm_property_map_file: str | None = None
+    # GoHighLevel: the sub-account (location) every request is scoped to.
+    crm_location_id: str = ""
 
     # Follow-up delivery. Only the local sink is allowed unless explicitly switched on.
     delivery_mode: Literal["sink", "smtp"] = "sink"
@@ -155,6 +159,8 @@ class Settings(BaseSettings):
                 raise ValueError("LEAD_FAULT_INJECTION_ENABLED must not be set in production")
         if self.llm_provider == "openai" and not self.openai_api_key:
             raise ValueError("LEAD_OPENAI_API_KEY is required when the OpenAI provider is used")
+        if self.crm_provider == "gohighlevel" and not self.crm_location_id.strip():
+            raise ValueError("LEAD_CRM_LOCATION_ID is required when LEAD_CRM_PROVIDER=gohighlevel")
         if self.delivery_mode == "smtp" and not self.delivery_allow_real_recipients:
             raise ValueError(
                 "LEAD_DELIVERY_MODE=smtp sends real email; it also needs "

@@ -9,133 +9,23 @@ Used for both providers:
 
 Operations: search a contact by email, create, update, search/create a company by domain,
 associate contact and company, add a note. Every HTTP attempt is reported to ``record`` so
-retries are measurable. Transient errors (timeouts, 429, 5xx) are retried with bounded
-exponential backoff and full jitter, honouring ``Retry-After`` up to the cap; anything else is
-permanent and raised at once.
+retries are measurable. The retry loop and the transient/permanent classification live in
+``app.crm.base`` and are shared with the other connectors.
 """
 
 from __future__ import annotations
 
-import random
 import re
-import time
-from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any
 
-import httpx
+from app.crm.base import CrmError, HttpCrmClient, Recorder, RetryPolicy
 
-Recorder = Callable[[str, str, int | None, int, str | None], None]
+__all__ = ["NOTE_TO_CONTACT", "CrmError", "HubSpotStyleClient", "Recorder", "RetryPolicy"]
+
 NOTE_TO_CONTACT = 202  # HUBSPOT_DEFINED association type id: note -> contact
 
 
-class CrmError(Exception):
-    def __init__(self, message: str, *, transient: bool, code: str, http_status: int | None):
-        super().__init__(message)
-        self.transient = transient
-        self.code = code
-        self.http_status = http_status
-
-
-@dataclass
-class RetryPolicy:
-    max_attempts: int = 3
-    base_s: float = 0.5
-    cap_s: float = 4.0
-
-    def delay(self, attempt: int, retry_after: float | None = None) -> float:
-        if retry_after is not None:
-            return min(retry_after, self.cap_s)
-        return random.uniform(0, min(self.cap_s, self.base_s * 2 ** (attempt - 1)))  # noqa: S311
-
-
-def _retry_after(response: httpx.Response) -> float | None:
-    value = response.headers.get("retry-after")
-    try:
-        return float(value) if value else None
-    except ValueError:
-        return None
-
-
-class HubSpotStyleClient:
-    def __init__(
-        self,
-        base_url: str,
-        token: str,
-        *,
-        timeout_s: float = 10.0,
-        retry: RetryPolicy | None = None,
-        record: Recorder | None = None,
-        transport: httpx.BaseTransport | None = None,
-        sleep: Callable[[float], None] = time.sleep,
-    ):
-        self.retry = retry or RetryPolicy()
-        self.record = record or (lambda *_: None)
-        self.sleep = sleep
-        self.http = httpx.Client(
-            base_url=base_url.rstrip("/"),
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            timeout=timeout_s,
-            transport=transport,
-        )
-
-    def close(self) -> None:
-        self.http.close()
-
-    def _request(
-        self,
-        operation: str,
-        method: str,
-        path: str,
-        json: dict[str, Any] | None = None,
-        accept: tuple[int, ...] = (),
-    ) -> httpx.Response:
-        for attempt in range(1, self.retry.max_attempts + 1):
-            started = time.perf_counter()
-            try:
-                response = self.http.request(method, path, json=json)
-            except httpx.TimeoutException:
-                ms = int((time.perf_counter() - started) * 1000)
-                self.record(operation, "transient", None, ms, "timeout")
-                error = CrmError(
-                    "CRM request timed out", transient=True, code="timeout", http_status=None
-                )
-                wait = self.retry.delay(attempt)
-            except httpx.TransportError as exc:
-                ms = int((time.perf_counter() - started) * 1000)
-                self.record(operation, "transient", None, ms, type(exc).__name__)
-                error = CrmError(
-                    "CRM unreachable", transient=True, code="unreachable", http_status=None
-                )
-                wait = self.retry.delay(attempt)
-            else:
-                ms = int((time.perf_counter() - started) * 1000)
-                status = response.status_code
-                if status < 400 or status in accept:
-                    self.record(operation, "success", status, ms, None)
-                    return response
-                if status == 429 or status >= 500:
-                    self.record(operation, "transient", status, ms, f"HTTP {status}")
-                    code = "rate_limited" if status == 429 else "server_error"
-                    error = CrmError(
-                        f"CRM returned {status}", transient=True, code=code, http_status=status
-                    )
-                    wait = self.retry.delay(attempt, _retry_after(response))
-                else:
-                    self.record(operation, "permanent", status, ms, f"HTTP {status}")
-                    code = {401: "unauthorized", 403: "forbidden", 404: "not_found"}.get(
-                        status, "rejected"
-                    )
-                    raise CrmError(
-                        f"CRM refused the request ({status})",
-                        transient=False,
-                        code=code,
-                        http_status=status,
-                    )
-            if attempt < self.retry.max_attempts:
-                self.sleep(wait)
-        raise error
-
+class HubSpotStyleClient(HttpCrmClient):
     # --- contacts ---------------------------------------------------------------------------
     def find_contact(self, email: str) -> str | None:
         body = {

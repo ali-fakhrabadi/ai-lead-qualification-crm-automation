@@ -4,11 +4,22 @@
 
 ### Added
 
+- GoHighLevel connector (`LEAD_CRM_PROVIDER=gohighlevel`, API v2, one location): contacts by
+  upsert, businesses, contact-business link, notes; `GOHIGHLEVEL_MAP` for its field names.
+  Tested against a local mock of the API (`backend/tests/mocks/gohighlevel.py`) with 16 unit and
+  5 integration tests; not verified against a real GoHighLevel account.
+- `backend/app/crm/base.py`: the `CrmConnector` protocol and the shared retry and
+  error-classification core (`HttpCrmClient`), now used by both connectors.
 - `docs/integration-case-study.md`: the integration layer as built (signed webhooks,
   idempotency, retries in three layers, transient versus permanent errors, the CRM adapter and
   how a second connector plugs in), with the benchmark's measured numbers.
 - `docs/ci-cd-and-deployment.md`: the CI jobs and a measured run, the image builds, Compose
   deployment, backup/restore and rollback with the lab deployment's results.
+
+### Changed
+
+- `LEAD_CRM_BASE_URL` defaults to empty, meaning the provider's own default (the code's old
+  default named a `demo-crm` host that does not exist; Compose already set `crm-demo`).
 
 ## 0.1.0 - 2026-11-19
 

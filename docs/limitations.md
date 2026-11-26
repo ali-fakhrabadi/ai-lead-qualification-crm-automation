@@ -11,6 +11,9 @@ customer deployment.
 - **HubSpot is not verified against a real account.** The adapter speaks HubSpot's CRM v3/v4 API
   and every test runs against the bundled demo CRM that mirrors that subset; a run against a
   HubSpot developer test account is still to be done.
+- **GoHighLevel is not verified against a real account either.** The connector follows the
+  published API specs and is tested against a local mock only; the mock's choices for
+  undocumented behaviour are listed in [crm-integration.md](crm-integration.md#gohighlevel).
 - **CPU-only model.** `llama3.1` 8B on a CPU host takes about a minute or more per
   qualification (see the benchmark). Fine for tens of leads per hour, not for bursts of hundreds;
   a GPU host or a hosted model changes that (the provider is a setting).

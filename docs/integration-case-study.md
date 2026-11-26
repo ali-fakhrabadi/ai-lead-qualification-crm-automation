@@ -30,7 +30,7 @@ flowchart LR
   outbox --> disp[dispatcher]
   disp -- "JWT bound to event id<br/>+ payload SHA-256" --> n8n[n8n workflows]
   n8n -- "internal API<br/>503 = retry, 4xx = stop" --> api
-  api -- "adapter: retries, 409 handling" --> crm[CRM: demo CRM or HubSpot]
+  api -- "connector: retries, race-safe create" --> crm[CRM: demo CRM, HubSpot or GoHighLevel]
 ```
 
 | Piece | Code |
@@ -40,7 +40,9 @@ flowchart LR
 | Transactional outbox | [`backend/app/services/outbox.py`](../backend/app/services/outbox.py) |
 | Dispatcher (outbox → n8n) | [`backend/app/dispatcher/main.py`](../backend/app/dispatcher/main.py) |
 | n8n event check and retry planning | [`n8n/code/verify_event.js`](../n8n/code/verify_event.js), [`n8n/code/plan_retry.js`](../n8n/code/plan_retry.js) |
-| CRM adapter | [`backend/app/crm/client.py`](../backend/app/crm/client.py) |
+| Connector interface, retries, error classes | [`backend/app/crm/base.py`](../backend/app/crm/base.py) |
+| HubSpot-shaped connector | [`backend/app/crm/client.py`](../backend/app/crm/client.py) |
+| GoHighLevel connector | [`backend/app/crm/gohighlevel.py`](../backend/app/crm/gohighlevel.py) |
 | Field mapping | [`backend/app/crm/mapping.py`](../backend/app/crm/mapping.py) |
 | CRM sync service | [`backend/app/services/crm_sync.py`](../backend/app/services/crm_sync.py) |
 | Demo CRM (HubSpot-shaped API subset) | [`backend/crm_demo/app.py`](../backend/crm_demo/app.py) |
@@ -193,45 +195,52 @@ against the demo CRM only.
 
 ## 7. How a new connector plugs in
 
-The sync service ([`crm_sync.py`](../backend/app/services/crm_sync.py)) is the only caller of
-the adapter, and it uses six methods:
+The sync service ([`crm_sync.py`](../backend/app/services/crm_sync.py)) is the only caller of a
+connector and depends on the `CrmConnector` protocol in
+[`base.py`](../backend/app/crm/base.py):
 
 ```python
 find_contact(email) -> str | None
-create_contact(properties) -> str          # resolves a create race to the existing id
+create_contact(properties) -> str          # must resolve a create race to the existing id
 update_contact(contact_id, properties) -> None
 find_company(domain) -> str | None
 create_company(name, domain) -> str
 associate(contact_id, company_id) -> None
 add_note(contact_id, body, timestamp_iso) -> str
+close() -> None
 ```
 
-and one error contract: raise `CrmError(transient=..., code=..., http_status=...)`, and call the
-`record(operation, outcome, status, ms, error)` callback once per HTTP attempt. Everything around
-it (locking the lead, the payload hash, one note per assessment, storing attempts, the lead's
-state transitions, the `503`/`422` answers to n8n, the dashboard) stays the same.
+HTTP connectors subclass `HttpCrmClient`, which owns the retry loop, the transient/permanent
+classification, the `record` callback per attempt and the injectable `transport` and `sleep`.
+A connector only describes its endpoints and where the ids are in the answers. Everything
+around it stays the same: locking the lead, the payload hash, one note per assessment, stored
+attempts, the lead's state transitions, the `503`/`422` answers to n8n, the dashboard.
 
-Adding a connector today means:
+Adding one takes four pieces, and the second connector, **GoHighLevel**
+([`gohighlevel.py`](../backend/app/crm/gohighlevel.py)), was built exactly this way:
 
-1. A client class with those methods, built on `httpx` with the same `transport`/`sleep`
-   injection, mapping the target system's status codes onto transient/permanent.
-2. A provider value in `LEAD_CRM_PROVIDER` (`backend/app/core/config.py`) and a branch in
-   `make_client` (`crm_sync.py`).
-3. A property map for the target's field names.
-4. A local mock of the target's API, like the demo CRM, so the integration and end-to-end tests
-   run without an account, and unit tests with a fake transport for the retry and conflict paths.
+| Piece | GoHighLevel |
+|---|---|
+| Client on `HttpCrmClient` | 7 operations on API v2 (`Version: 2021-07-28`, scoped to a location); create through `POST /contacts/upsert`, which matches the email and so plays the role of HubSpot's `409` handling |
+| Provider value and `make_client` branch | `LEAD_CRM_PROVIDER=gohighlevel`, `LEAD_CRM_LOCATION_ID` (required at start-up) |
+| Property map | `GOHIGHLEVEL_MAP`: camelCase contact fields, `lq_*` as custom fields by key |
+| Local mock and tests | [`backend/tests/mocks/gohighlevel.py`](../backend/tests/mocks/gohighlevel.py), 16 unit tests of the connector against it and 5 integration tests of the whole sync step (real PostgreSQL) |
 
-The interface is implicit today (one implementation); a second connector is the point at which
-it would be written down as a `Protocol` and the provider switch turned into a small registry.
-"Contact" and "company" also map differently in non-CRM systems (an accounting system has
-customers, a store has customers and orders), so the method names would become the generic
-operations the sync needs: upsert a person, upsert an organisation, link them, attach a note.
+Contact/company semantics carry over to GoHighLevel directly (contacts and businesses). For
+systems where they do not (an accounting system's customers, a store's customers and orders),
+the same seven operations would be implemented as upsert a person, upsert an organisation, link
+them, attach a note.
+
+What the GoHighLevel connector has **not** been through: a real account. Details and the mock's
+explicit assumptions where the published spec is silent:
+[crm-integration.md](crm-integration.md#gohighlevel).
 
 ## 8. How it is verified
 
 | Suite | What it covers for this layer | Result |
 |---|---|---|
-| Backend unit + integration (real PostgreSQL) | signatures and expiry, idempotency keys and conflicts, same-email rules, outbox claims, CRM retries and `Retry-After`, `409` resolution, permanent errors not retried | 163 passed, 89 % coverage |
+| Backend unit + integration (real PostgreSQL) | signatures and expiry, idempotency keys and conflicts, same-email rules, outbox claims, CRM retries and `Retry-After`, `409` resolution, permanent errors not retried | 163 passed, 89 % coverage (before the GoHighLevel connector) |
+| Same suite with the GoHighLevel connector (2026-11-26, on lab host 24.179) | the above plus 21 GoHighLevel tests against the local mock | 183 passed, 1 skipped (the dataset test; the dataset was not copied for this run), 89 % coverage; connector modules 91-95 % |
 | n8n workflow harness (disposable n8n, scriptable API) | replays, CRM `429` with `Retry-After`, CRM outage exhausting attempts, permanent CRM error, refused tokens, error workflow, delivery replay | 12 / 12 scenarios, 49 / 49 checks |
 | End-to-end (deployed stack) | replays, duplicate submissions, injected failures, through the browser and the real model | 21 passed |
 | Benchmark (128 scenarios, real model) | the numbers on this page | 126 / 128 passed every check; the two failures are unrelated to integration ([findings](evaluation/benchmark-report.md#findings)) |
@@ -241,7 +250,8 @@ CI runs the unit, integration, harness and end-to-end suites on every push; see
 
 ## Limits
 
-- One connector (HubSpot-shaped), not verified against a real HubSpot account.
+- Two connectors (HubSpot-shaped, GoHighLevel), neither verified against a real account; the
+  benchmark numbers are from the HubSpot-shaped demo CRM, not from GoHighLevel.
 - The benchmark processed one lead at a time; throughput with concurrent leads was not measured
   through the model. API concurrency was load-tested with k6 (5,318 requests, 0 failed).
 - Outbound delivery goes to a local mail sink only; no real recipients.
