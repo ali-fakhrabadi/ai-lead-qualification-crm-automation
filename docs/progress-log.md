@@ -54,3 +54,13 @@ Each of these was found by a test run, fixed, and covered by a test:
   stack with new addresses: 8 / 8 held and flagged, no CRM record, no draft, no message.
 - Metrics fix: operator notifications ("draft waiting") had been counted as messages to leads.
 - Report: `docs/evaluation/benchmark-report.md`.
+
+## 2026-11-26: integration and CI/CD documentation
+
+- Two documentation pages for portfolio buyers who look for API integration and CI/CD work,
+  written from the code and existing measurements only (no new runs):
+  `docs/integration-case-study.md` and `docs/ci-cd-and-deployment.md`; linked from the README.
+- CI durations quoted from the GitHub Actions run of `3318a41` (all jobs green, about 13 minutes
+  from push to the last job).
+- A second connector is proposed, not built; it will be built against a local mock with tests
+  once chosen.

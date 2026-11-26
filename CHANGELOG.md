@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `docs/integration-case-study.md`: the integration layer as built (signed webhooks,
+  idempotency, retries in three layers, transient versus permanent errors, the CRM adapter and
+  how a second connector plugs in), with the benchmark's measured numbers.
+- `docs/ci-cd-and-deployment.md`: the CI jobs and a measured run, the image builds, Compose
+  deployment, backup/restore and rollback with the lab deployment's results.
+
 ## 0.1.0 - 2026-11-19
 
 First public version of the reference project.

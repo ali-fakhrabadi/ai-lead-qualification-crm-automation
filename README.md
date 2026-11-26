@@ -48,7 +48,8 @@ flowchart LR
 
 Details: [architecture](docs/architecture.md) · [lead lifecycle and rules](docs/lead-lifecycle.md)
 · [idempotency and retries](docs/idempotency-and-retries.md) · [n8n workflows](docs/n8n-workflows.md)
-· [CRM integration](docs/crm-integration.md) · [security](docs/security.md) ·
+· [CRM integration](docs/crm-integration.md) ·
+[integration case study](docs/integration-case-study.md) · [security](docs/security.md) ·
 [threat model](docs/threat-model.md).
 
 **Stack:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, PostgreSQL 17 · n8n 2.45
@@ -164,10 +165,12 @@ email) are sent to OpenAI under your account's terms.
 
 CI runs lint, types, tests with coverage, the workflow harness, dependency audits, gitleaks,
 image builds, Trivy and the full end-to-end suite (fixture model) on every push.
+Details and measured run times: [CI/CD and deployment](docs/ci-cd-and-deployment.md).
 
 ## Deployment
 
 Docker Compose on one host, model optionally on another: [deployment](docs/deployment.md) ·
+[CI/CD, backup and rollback](docs/ci-cd-and-deployment.md) ·
 [two-host lab deployment](docs/two-host-deployment.md) · backups with `scripts/backup.sh`,
 restore checks with `scripts/restore.sh --check`. The lab deployment is LAN-only HTTP (no
 domain); put a TLS reverse proxy in front for anything else.
